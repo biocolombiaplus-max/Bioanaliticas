@@ -46,7 +46,7 @@
   ],
   "headers": [
     {
-      "source": "/(app|informe|informe-agenda).html",
+      "source": "/(app|informe|informe-agenda|manual).html",
       "headers": [
         {
           "key": "Cache-Control",

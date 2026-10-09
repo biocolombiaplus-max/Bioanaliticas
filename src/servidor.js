@@ -63,20 +63,36 @@ async function auth(req, res, next) {
   res.redirect('/');
 }
 
-// Permisos por rol: diseño solo trabaja con piezas y ve el calendario; consulta solo lee.
-const PERMISOS_DISENO = [/^\/api\/(estado|sesion|hoy)$/, /^\/api\/piezas/, /^\/api\/archivos/, /^\/api\/calendario$/, /^\/api\/ia\/revisar-pieza$/];
+// Permisos por funciones: cada usuario ve y edita solo las secciones que el administrador le asignó.
+// Devuelve true (todos), false (solo administradores) o una lista de alternativas [sección, nivel mínimo].
+function requisitos(ruta, metodo) {
+  const get = metodo === 'GET', R = (m, n) => [[m, n]];
+  if (/^\/api\/(estado|sesion|hoy|perfil|manual)$/.test(ruta)) return true;
+  if (ruta === '/api/cola/procesar') return R('correos', 'ver');
+  if (/^\/api\/(archivos|imagenes)(\/|$)/.test(ruta)) return 'carga';
+  if (/^\/api\/piezas\/[^/]+\/decision$/.test(ruta) || (metodo === 'DELETE' && /^\/api\/piezas\//.test(ruta))) return R('piezas', 'aprobar');
+  if (/^\/api\/(piezas|ia\/revisar-pieza)(\/|$)/.test(ruta)) return R('piezas', get ? 'ver' : 'subir');
+  if (/^\/api\/(agenda|equipo)(\/|$)/.test(ruta)) return R('agenda', get ? 'ver' : 'editar');
+  if (/^\/api\/calendario(\/|$)/.test(ruta)) return R('calendario', get ? 'ver' : 'editar');
+  if (/^\/api\/(campanas|vista-previa|ia\/redactar-correo)(\/|$)/.test(ruta)) return get ? [['correos', 'ver'], ['informes', 'ver']] : R('correos', 'editar');
+  if (ruta === '/api/contactos' && get) return [['contactos', 'ver'], ['correos', 'editar']];
+  if (/^\/api\/contactos(\/|$)/.test(ruta)) return R('contactos', get ? 'ver' : 'editar');
+  if (/^\/api\/directorio(\/|$)/.test(ruta)) return R('directorio', get ? 'ver' : 'editar');
+  if (/^\/api\/(ia\/contenido|contenidos)(\/|$)/.test(ruta)) return R('estudio', 'editar');
+  if (/^\/api\/publicaciones(\/|$)/.test(ruta)) return get ? [['analizar', 'ver'], ['informes', 'ver'], ['tablero', 'ver']] : R('analizar', 'editar');
+  if (ruta === '/api/analizar') return R('analizar', 'editar');
+  if (ruta === '/api/resumen') return [['tablero', 'ver'], ['correos', 'ver']];
+  if (ruta === '/api/cuenta') return [['tablero', 'ver'], ['instagram', 'ver']];
+  if (ruta === '/api/informe') return [['informes', 'ver'], ['analizar', 'ver'], ['correos', 'ver'], ['instagram', 'ver']];
+  return false; // usuarios, remitentes y ajustes
+}
 function permisos(req, res, next) {
-  const rol = req.perfil.rol;
-  const ruta = req.originalUrl.split('?')[0];
-  if (rol === 'admin') return next();
-  if (rol === 'diseno') {
-    if (!PERMISOS_DISENO.some(r => r.test(ruta))) return res.status(403).json({ error: 'Tu usuario no tiene acceso a esta sección.' });
-    if (/^\/api\/calendario/.test(ruta) && req.method !== 'GET') return res.status(403).json({ error: 'Solo puedes consultar el calendario.' });
-    if (/\/decision$/.test(ruta)) return res.status(403).json({ error: 'La aprobación la hace la jefatura de prensa.' });
-    return next();
-  }
-  if (req.method === 'GET' || /^\/api\/(cola\/procesar)$/.test(ruta)) return next();
-  return res.status(403).json({ error: 'Tu usuario es de solo consulta.' });
+  const p = req.perfil;
+  if (p.rol === 'admin') return next();
+  const r = requisitos(req.originalUrl.split('?')[0], req.method);
+  const ok = r === true || (r === 'carga' ? Object.values(p.funciones || {}).some(n => n !== 'ver') : Array.isArray(r) && r.some(([m, n]) => usuarios.tiene(p, m, n)));
+  if (ok) return next();
+  return res.status(403).json({ error: r === false ? 'Esta sección es solo para administradores.' : 'Tu usuario no tiene permiso para esta acción. Pídele a la jefatura que te asigne la función.' });
 }
 
 app.post('/login', wrap(async (req, res) => {
@@ -174,8 +190,11 @@ app.get('/api/estado', wrap(async (req, res) => {
     usuario: req.user,
     nombre: req.perfil.nombre,
     rol: req.perfil.rol,
+    funciones: req.perfil.funciones || {},
     roles: usuarios.ROLES,
-    remitentes: req.perfil.rol === 'admin' ? await remitentes.listar() : [],
+    modulos: usuarios.MODULOS,
+    plantillasUsuario: usuarios.PLANTILLAS,
+    remitentes: usuarios.tiene(req.perfil, 'correos', 'editar') ? await remitentes.listar() : [],
     tipos: Object.fromEntries(Object.entries(TIPOS).map(([k, v]) => [k, v.nombre])),
     plantillas: PLANTILLAS,
     canales: oficina.CANALES,
@@ -562,6 +581,14 @@ app.get('/api/contenidos', wrap(async (req, res) => {
 app.delete('/api/contenidos/:id', wrap(async (req, res) => { await contenidos.del(req.params.id); res.json({ ok: true }); }));
 
 // ---- Usuarios ----
+// Manual de uso: el de cada persona según sus funciones; el administrador puede ver el de cualquiera.
+app.get('/api/manual', wrap(async (req, res) => {
+  const u = String(req.query.usuario || req.user).toLowerCase();
+  if (u !== req.user && req.perfil.rol !== 'admin') return res.status(403).json({ error: 'Solo puedes ver tu propio manual.' });
+  const p = await usuarios.perfilDe(u);
+  if (!p) return res.status(404).json({ error: 'Ese usuario no existe o está desactivado.' });
+  res.json({ ...p, rolNombre: (usuarios.ROLES[p.rol] || p.rol).split(' (')[0], modulos: usuarios.MODULOS, baseUrl: mailer.cfg().baseUrl, organizacion: process.env.ORG_NAME || 'Alcaldía de Villa del Rosario' });
+}));
 app.get('/api/usuarios', wrap(async (req, res) => res.json(await usuarios.listar())));
 app.post('/api/usuarios', wrap(async (req, res) => {
   try { res.json(await usuarios.guardar(req.body, req.user)); } catch (e) { res.status(400).json({ error: e.message }); }
@@ -638,7 +665,6 @@ app.post('/api/piezas/:id/decision', wrap(async (req, res) => {
   try { res.json(await oficina.decidir(req.params.id, req.body, req.perfil)); } catch (e) { res.status(400).json({ error: e.message }); }
 }));
 app.delete('/api/piezas/:id', wrap(async (req, res) => {
-  if (req.perfil.rol !== 'admin') return res.status(403).json({ error: 'Solo la jefatura puede eliminar piezas.' });
   await oficina.eliminarPieza(req.params.id); res.json({ ok: true });
 }));
 app.post('/api/ia/revisar-pieza', wrap(async (req, res) => {
@@ -773,14 +799,14 @@ app.get('/api/hoy', wrap(async (req, res) => {
     },
     agenda: eventos.slice(0, 12),
   };
-  if (req.perfil.rol !== 'diseno') {
-    const camps = await mailer.campaigns.all();
-    const env = camps.find(c => c.estado === 'enviando');
+  const pf = req.perfil, t = (m, n) => usuarios.tiene(pf, m, n);
+  if (t('correos')) {
+    const env = (await mailer.campaigns.all()).find(c => c.estado === 'enviando');
     out.correo = env ? { nombre: env.nombre, stats: await mailer.campaignStats(env.id) } : null;
-    out.contactos = await mailer.contacts.count();
-    out.publicaciones = (await ig.posts.all()).length;
-    out.miAgenda = (await agendaMod.listar(hoy, en7)).filter(x => x.estado !== 'cancelada').slice(0, 10);
   }
+  if (t('contactos') || t('correos')) out.contactos = await mailer.contacts.count();
+  if (t('analizar')) out.publicaciones = (await ig.posts.all()).length;
+  if (t('agenda')) out.miAgenda = (await agendaMod.listar(hoy, en7)).filter(x => x.estado !== 'cancelada').slice(0, 10);
   res.json(out);
 }));
 

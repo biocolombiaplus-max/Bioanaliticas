@@ -453,3 +453,11 @@ input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .ig-res .b{flex:1;min-width:0}
 .ig-res select{width:auto;margin:6px 0 0;padding:6px 28px 6px 10px;font-size:12px}
 @media (max-width:860px){.dr-filtros{grid-template-columns:1fr 1fr}.dr-filtros input{grid-column:1/-1}.dr-grid{grid-template-columns:1fr}.qr-box{flex-direction:column;align-items:flex-start}}
+
+/* Funciones por usuario */
+.funcs{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.funcs .fn{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line);font-size:13px}
+.funcs .fn:last-child{border-bottom:0}
+.funcs .fn:nth-child(odd){background:var(--soft)}
+.funcs select{margin:0;padding:7px 28px 7px 10px;font-size:13px}
+@media (max-width:520px){.funcs .fn{grid-template-columns:1fr}}

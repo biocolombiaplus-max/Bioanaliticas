@@ -25,25 +25,25 @@
     <a class="brand" href="/"><img src="/img/logo_sm.png" alt=""><div><b>Sala de Prensa</b><span>Villa del Rosario</span></div></a>
     <nav class="nav" id="nav">
       <div class="nav-g">Día a día</div>
-      <button data-v="inicio" data-roles="admin,diseno,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 3l9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
-      <button data-v="piezas" data-roles="admin,diseno,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Piezas para revisar <span class="nav-badge" id="badge-piezas"></span></button>
-      <button data-v="agenda" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>Agenda de gestión</button>
-      <button data-v="calendario" data-roles="admin,diseno,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendario editorial</button>
-      <div class="nav-g" data-roles="admin,consulta">Comunicación</div>
-      <button data-v="correos" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Correos</button>
-      <button data-v="contactos" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-5.5"/></svg>Bases de datos</button>
-      <button data-v="directorio" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Directorio y red</button>
-      <button data-v="estudio" data-roles="admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 1.9 4.6L18 9.5l-4.1 1.9L12 16l-1.9-4.6L6 9.5l4.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>Estudio de contenidos</button>
-      <div class="nav-g" data-roles="admin,consulta">Medición</div>
-      <button data-v="analizar" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6M11 8v6"/></svg>Analizar publicación</button>
-      <button data-v="resumen" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/></svg>Tablero</button>
-      <button data-v="instagram" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>Cuenta de Instagram</button>
-      <button data-v="informes" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 17v-3M12 17v-6M16 17v-4"/></svg>Informes</button>
-      <div class="nav-g" data-roles="admin">Configuración</div>
-      <button data-v="ajustes" data-roles="admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ajustes y usuarios</button>
+      <button data-v="inicio" data-mod="*"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 3l9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
+      <button data-v="piezas" data-mod="piezas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Piezas para revisar <span class="nav-badge" id="badge-piezas"></span></button>
+      <button data-v="agenda" data-mod="agenda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>Agenda de gestión</button>
+      <button data-v="calendario" data-mod="calendario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendario editorial</button>
+      <div class="nav-g">Comunicación</div>
+      <button data-v="correos" data-mod="correos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Correos</button>
+      <button data-v="contactos" data-mod="contactos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-5.5"/></svg>Bases de datos</button>
+      <button data-v="directorio" data-mod="directorio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Directorio y red</button>
+      <button data-v="estudio" data-mod="estudio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 1.9 4.6L18 9.5l-4.1 1.9L12 16l-1.9-4.6L6 9.5l4.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>Estudio de contenidos</button>
+      <div class="nav-g">Medición</div>
+      <button data-v="analizar" data-mod="analizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6M11 8v6"/></svg>Analizar publicación</button>
+      <button data-v="resumen" data-mod="tablero"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/></svg>Tablero</button>
+      <button data-v="instagram" data-mod="instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>Cuenta de Instagram</button>
+      <button data-v="informes" data-mod="informes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 17v-3M12 17v-6M16 17v-4"/></svg>Informes</button>
+      <div class="nav-g">Configuración</div>
+      <button data-v="ajustes" data-mod="admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ajustes y usuarios</button>
     </nav>
     <div class="stripe"></div>
-    <div class="foot">Sesión: <b id="who">—</b> · <a href="/logout">Salir</a></div>
+    <div class="foot"><a href="/manual.html" target="_blank">📖 Mi manual de uso</a><br>Sesión: <b id="who">—</b> · <a href="/logout">Salir</a></div>
   </aside>
 
   <main>
@@ -64,7 +64,7 @@
     <!-- PIEZAS -->
     <section class="view" id="v-piezas">
       <div class="top"><div><h1>Piezas para revisar</h1><p>El equipo de diseño sube cada imagen o video; la jefatura revisa, comenta y aprueba antes de publicar.</p></div>
-        <button class="btn hot" onclick="Piezas.nueva()">+ Subir pieza</button></div>
+        <button data-edita="piezas" class="btn hot" onclick="Piezas.nueva()">+ Subir pieza</button></div>
       <div class="tabs" id="pz-tabs"></div>
       <div class="pz-grid" id="pz-grid"></div>
     </section>
@@ -72,14 +72,14 @@
     <!-- AGENDA DE GESTIÓN -->
     <section class="view" id="v-agenda">
       <div class="top"><div><h1>Agenda de gestión</h1><p>Programa, marca lo realizado y guarda fotos y enlaces como soporte. Con un clic sale el informe de gestión.</p></div>
-        <div class="row"><button class="btn alt" onclick="Equipo.abrir()">👥 Equipo</button><button class="btn hot ag-add" id="ag-nueva" onclick="Agenda.editar()">+ Nueva actividad</button></div></div>
+        <div class="row"><button data-edita="agenda" class="btn alt" onclick="Equipo.abrir()">👥 Equipo</button><button data-edita="agenda" class="btn hot ag-add" id="ag-nueva" onclick="Agenda.editar()">+ Nueva actividad</button></div></div>
       <div class="grid g4" id="ag-kpis"></div>
       <div class="card ag-bar">
         <div class="tabs" id="ag-tabs" style="margin:0"></div>
         <div class="row ag-range"><input type="date" id="ag-desde"><span class="muted">a</span><input type="date" id="ag-hasta"><button class="btn sm alt" onclick="Agenda.rango()">Ver</button><button class="btn sm" onclick="Agenda.informe()">Informe de gestión</button></div>
       </div>
       <div id="ag-lista"></div>
-      <button class="fab" id="ag-fab" onclick="Agenda.editar()" aria-label="Nueva actividad">+</button>
+      <button data-edita="agenda" class="fab" id="ag-fab" onclick="Agenda.editar()" aria-label="Nueva actividad">+</button>
     </section>
 
     <!-- CALENDARIO -->
@@ -148,7 +148,7 @@
     <!-- CORREOS -->
     <section class="view" id="v-correos">
       <div class="top"><div><h1>Correos</h1><p>Redacta, revisa y envía correos profesionales. Se envían uno cada <b id="delay-lbl">10</b> segundos para cuidar la reputación del remitente.</p></div>
-        <button class="btn" onclick="Mail.nueva()">+ Nuevo correo</button></div>
+        <button data-edita="correos" class="btn" onclick="Mail.nueva()">+ Nuevo correo</button></div>
       <div id="smtp-warn"></div>
       <div class="grid g2">
         <div class="card">
@@ -213,7 +213,7 @@
 
     <!-- CONTACTOS -->
     <section class="view" id="v-directorio">
-      <div class="top"><div><h1>Directorio y red</h1><p>Negocios, emprendedores y creadores de Villa del Rosario, Cúcuta, Los Patios y el área metropolitana, de fuentes oficiales y con autorización.</p></div><div class="row"><button class="btn alt" type="button" onclick="Directorio.form()" data-solo-admin>+ Agregar</button><a class="btn alt" id="dr-exportar" href="/api/directorio/exportar">Descargar Excel</a></div></div>
+      <div class="top"><div><h1>Directorio y red</h1><p>Negocios, emprendedores y creadores de Villa del Rosario, Cúcuta, Los Patios y el área metropolitana, de fuentes oficiales y con autorización.</p></div><div class="row"><button data-edita="directorio" class="btn alt" type="button" onclick="Directorio.form()" data-solo-admin>+ Agregar</button><a class="btn alt" id="dr-exportar" href="/api/directorio/exportar">Descargar Excel</a></div></div>
       <div class="grid g4" id="dr-kpis"></div>
       <div class="grid g2" style="margin-top:16px">
         <div class="card" id="dr-registro"></div>
@@ -290,7 +290,7 @@
       <div class="top"><div><h1>Ajustes y usuarios</h1><p>Personas con acceso, cuentas de correo para enviar y estado de las conexiones.</p></div></div>
       <div class="grid g2">
         <div class="card"><div class="card-h"><h2>Usuarios</h2><button class="btn sm hot" onclick="Ajustes.usuario()">+ Agregar usuario</button></div>
-          <p class="muted small">El rol <b>Diseño</b> solo puede subir piezas, ver sus comentarios y consultar el calendario.</p><div id="usr-list"></div></div>
+          <p class="muted small">A cada persona le asignas funciones por sección: sin acceso, ver o editar. Hay tipos listos (Diseño, Periodista, Community manager, Consulta) que puedes ajustar. Cada usuario tiene su <b>manual</b> según sus funciones.</p><div id="usr-list"></div></div>
         <div class="card"><div class="card-h"><h2>Correos para enviar</h2><button class="btn sm hot" onclick="Ajustes.remitente()">+ Agregar correo</button></div>
           <p class="muted small">Cada cuenta necesita sus datos SMTP (los da tu proveedor: Brevo, Google Workspace, Microsoft 365, etc.). La clave se guarda cifrada.</p><div id="rem-list"></div></div>
       </div>

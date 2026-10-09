@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Manual de uso · Sala de Prensa Digital</title>
+<link rel="icon" href="/img/logo_sm.png">
+<meta name="theme-color" content="#2a2672">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<link rel="stylesheet" href="/hoja-carta.css">
+<style>
+  .lead{font-size:11.5px;line-height:1.6;background:var(--soft);border-radius:14px;padding:4.5mm 5.5mm;border-left:4px solid var(--orange);margin:0 0 4mm}
+  .lead b{color:var(--navy)}
+  .nivel{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-radius:999px;padding:2px 9px;background:#e6f4ea;color:var(--good);margin-left:6px;vertical-align:middle}
+  .nivel.ver{background:#e3f2f7;color:var(--blue)}
+  .paso{display:grid;grid-template-columns:9mm 1fr;gap:3.5mm;align-items:start;padding:2.6mm 0;border-bottom:1px solid var(--line)}
+  .paso .n{width:8mm;height:8mm;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:11px;display:grid;place-items:center}
+  .paso b{color:var(--ink)}
+  .paso div{font-size:11px;line-height:1.55}
+  .sub{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);margin:4mm 0 1mm}
+  .tip{display:flex;gap:3mm;background:#fff8ef;border:1px solid #f6dcc3;border-radius:12px;padding:3.5mm 4.5mm;font-size:10.5px;margin-top:3mm}
+  .tip i{font-style:normal;font-size:14px}
+  .tabla{width:100%;border-collapse:collapse;font-size:11px}
+  .tabla th{text-align:left;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);background:var(--soft);padding:2.4mm 3mm;border-bottom:2px solid var(--line)}
+  .tabla td{padding:2.4mm 3mm;border-bottom:1px solid var(--line)}
+  .si{color:var(--good);font-weight:700}.no{color:var(--muted)}
+  .credencial{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;margin-top:4mm}
+  .credencial div{border:1px solid var(--line);border-radius:14px;padding:4mm 5mm}
+  .credencial span{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2);font-weight:600}
+  .credencial b{font-size:13px;word-break:break-all}
+  .faq{border-bottom:1px solid var(--line);padding:2.8mm 0;font-size:11px}
+  .faq b{display:block;color:var(--navy);margin-bottom:1mm}
+  kbd{font:inherit;font-weight:600;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:0 5px;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="toolbar"><b>Manual de uso</b><div class="grp"><a href="/app.html">← Volver al panel</a><button onclick="window.print()">🖨 Imprimir</button><button class="hot" id="b-pdf">⬇ Descargar PDF</button></div></div>
+<div class="aviso" id="aviso" style="display:none"></div>
+<div id="doc"><div class="loading">Preparando tu manual…</div></div>
+<script src="/hoja-carta.js"></script>
+<script src="/manual.js"></script>
+</body>
+</html>

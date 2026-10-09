@@ -75,9 +75,13 @@ const verdict = s => s >= 75 ? 'Impacto sobresaliente: el contenido está movili
 /* ---------------- Aplicación ---------------- */
 const App = {
   estado: null,
-  // Puede modificar (administrador); los de consulta solo ven.
-  puede: () => App.estado && App.estado.rol === 'admin',
-  permitido(v) { const b = document.querySelector(`.nav button[data-v="${v}"]`); return b && b.dataset.roles.split(',').includes(App.estado.rol); },
+  // Funciones del usuario por sección: nivel('agenda') → 'ver' | 'editar' | ...; el administrador tiene todo.
+  admin: () => Boolean(App.estado && App.estado.rol === 'admin'),
+  nivel: mod => App.admin() ? 'editar' : (App.estado && App.estado.funciones || {})[mod] || '',
+  // ¿Puede modificar en esa sección? (piezas: subir o aprobar; demás: editar)
+  puede: mod => App.admin() || ['editar', 'aprobar', 'subir'].includes(App.nivel(mod)),
+  aprueba: () => App.admin() || App.nivel('piezas') === 'aprobar',
+  permitido(v) { const b = document.querySelector(`.nav button[data-v="${v}"]`); if (!b) return false; const m = b.dataset.mod; return m === '*' || (m === 'admin' ? App.admin() : Boolean(App.nivel(m))); },
   go(v) {
     if (!document.getElementById('v-' + v) || !App.permitido(v)) v = 'inicio';
     document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
@@ -90,20 +94,24 @@ const App = {
   async init() {
     App.estado = await api('/api/estado');
     $('#who').textContent = App.estado.nombre;
-    document.querySelectorAll('[data-roles]').forEach(el => { el.style.display = el.dataset.roles.split(',').includes(App.estado.rol) ? '' : 'none'; });
+    // Menú: solo las secciones asignadas; se ocultan los grupos que quedan vacíos.
+    document.querySelectorAll('.nav button[data-v]').forEach(b => { b.style.display = App.permitido(b.dataset.v) ? '' : 'none'; });
+    document.querySelectorAll('[data-edita]').forEach(el => { el.style.display = App.puede(el.dataset.edita) ? '' : 'none'; });
+    document.querySelectorAll('.nav .nav-g').forEach(g => { let el = g.nextElementSibling, vis = false; while (el && !el.classList.contains('nav-g')) { if (el.style.display !== 'none') vis = true; el = el.nextElementSibling; } g.style.display = vis ? '' : 'none'; });
     $('#delay-lbl').textContent = App.estado.delay;
     $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) App.go(b.dataset.v); });
     addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && !$('#v-' + v)?.classList.contains('on')) App.go(v); });
     if (location.hash === '#firma') { const q = new URLSearchParams(location.search); Firma.volverA = q.get('volver') && q.get('volver').startsWith('/informe') ? q.get('volver') : null; App.go('ajustes'); setTimeout(Firma.abrir, 300); } else App.go(location.hash.slice(1) || 'inicio');
     if (App.estado.bienvenida) App.bienvenida(App.estado.bienvenida);
     App.badge();
-    if (App.estado.rol !== 'diseno') { App.watchQueue(); setInterval(App.watchQueue, 20000); }
+    if (App.nivel('correos')) { App.watchQueue(); setInterval(App.watchQueue, 20000); }
     setInterval(App.badge, 60000);
   },
   async badge() {
+    if (!App.nivel('piezas')) return;
     const ps = await api('/api/piezas').catch(() => null);
     if (!ps) return;
-    const n = ps.filter(p => App.estado.rol === 'diseno' ? p.estado === 'cambios' : p.estado === 'revision').length;
+    const n = ps.filter(p => App.aprueba() ? p.estado === 'revision' : p.estado === 'cambios').length;
     $('#badge-piezas').textContent = n || '';
   },
   bienvenida({ firma, mensaje }) {
@@ -425,13 +433,13 @@ const Mail = {
       <td><div class="bar"><i style="width:${prog}%"></i></div><div class="small muted">${prog}%${s.pendientes ? ` · ~${s.etaMinutos} min` : ''}</div></td>
       <td class="n">${nf(s.enviados)}</td><td class="n">${s.tasaApertura}%</td><td class="n"><b>${nf(s.clics)}</b> <span class="muted">(${s.tasaClic}%)</span></td><td class="n">${nf(s.bajas)}</td>
       <td><div class="row" style="justify-content:flex-end;flex-wrap:nowrap">
-        ${['borrador', 'pausada'].includes(c.estado) && App.puede() ? `<button class="btn sm alt" onclick="Mail.editar('${c.id}')">Editar</button>` : ''}
-        ${App.puede() ? `<button class="btn sm alt" onclick="Mail.duplicar('${c.id}')" title="Crear uno nuevo a partir de este">Duplicar</button>` : ''}
-        ${c.estado === 'enviando' && App.puede() ? `<button class="btn sm alt" onclick="Mail.pausar('${c.id}')">Pausar</button>` : ''}
-        ${c.estado === 'pausada' && App.puede() ? `<button class="btn sm hot" onclick="Mail.reanudar('${c.id}')">Reanudar</button>` : ''}
+        ${['borrador', 'pausada'].includes(c.estado) && App.puede('correos') ? `<button class="btn sm alt" onclick="Mail.editar('${c.id}')">Editar</button>` : ''}
+        ${App.puede('correos') ? `<button class="btn sm alt" onclick="Mail.duplicar('${c.id}')" title="Crear uno nuevo a partir de este">Duplicar</button>` : ''}
+        ${c.estado === 'enviando' && App.puede('correos') ? `<button class="btn sm alt" onclick="Mail.pausar('${c.id}')">Pausar</button>` : ''}
+        ${c.estado === 'pausada' && App.puede('correos') ? `<button class="btn sm hot" onclick="Mail.reanudar('${c.id}')">Reanudar</button>` : ''}
         <button class="btn sm alt" onclick="Mail.detalle('${c.id}')">Ver</button>
         <a class="btn sm alt" target="_blank" href="/informe.html?tipo=correo&campana=${c.id}&imprimir=1">PDF</a>
-        ${c.estado !== 'enviando' && App.puede() ? `<button class="btn sm danger" onclick="Mail.borrar('${c.id}')" title="Eliminar">✕</button>` : ''}
+        ${c.estado !== 'enviando' && App.puede('correos') ? `<button class="btn sm danger" onclick="Mail.borrar('${c.id}')" title="Eliminar">✕</button>` : ''}
       </div></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Aún no hay correos. Crea el primero con el formulario de arriba.</div>';
   },
   CAMPOS: ['tipo', 'remitenteId', 'nombre', 'remitenteNombre', 'segmento', 'asunto', 'preheader', 'imagenUrl', 'imagenAlt', 'titular', 'mensaje', 'botonTexto', 'botonUrl', 'boton2Texto', 'boton2Url', 'notaBoton', 'cierre', 'logoUrl', 'motivo'],
@@ -581,7 +589,7 @@ const Contacts = {
     ].join('');
     const maxC = Math.max(1, ...r.ciudades.map(c => c[1]));
     $('#ct-cities').innerHTML = r.ciudades.length ? `<div class="funnel">${r.ciudades.map(([n, v]) => `<div class="f"><span>${esc(n)}</span><div class="track"><i style="width:${100 * v / maxC}%;--c:${C.violet}"></i></div><b>${nf(v)}</b></div>`).join('')}</div>` : '<p class="muted">Cuando la base tenga la columna municipio o ciudad, aquí verás de dónde son tus contactos.</p>';
-    $('#ct-table').innerHTML = r.items.length ? `<table class="t"><thead><tr><th>Nombre</th><th>Correo</th><th>Municipio</th><th>Organización</th><th>Listas</th><th>Estado</th><th></th></tr></thead><tbody>${r.items.map(c => `<tr><td>${esc(c.nombre || '—')}${c.cargo ? `<div class="small muted">${esc(c.cargo)}</div>` : ''}</td><td>${esc(c.email)}</td><td>${esc(c.ciudad || '')}</td><td>${esc(c.organizacion || '')}</td><td class="small">${esc((c.listas || []).join(', '))}</td><td>${c.baja ? '<span class="badge bad">Baja</span>' : '<span class="badge ok">Activo</span>'}</td><td>${App.puede() ? `<button class="btn sm danger" onclick="Contacts.del('${esc(c.email)}')">✕</button>` : ''}</td></tr>`).join('')}</tbody></table>${r.total > 500 ? '<p class="small muted">Mostrando los 500 más recientes.</p>' : ''}` : '<div class="empty">Sube tu primera base para empezar.</div>';
+    $('#ct-table').innerHTML = r.items.length ? `<table class="t"><thead><tr><th>Nombre</th><th>Correo</th><th>Municipio</th><th>Organización</th><th>Listas</th><th>Estado</th><th></th></tr></thead><tbody>${r.items.map(c => `<tr><td>${esc(c.nombre || '—')}${c.cargo ? `<div class="small muted">${esc(c.cargo)}</div>` : ''}</td><td>${esc(c.email)}</td><td>${esc(c.ciudad || '')}</td><td>${esc(c.organizacion || '')}</td><td class="small">${esc((c.listas || []).join(', '))}</td><td>${c.baja ? '<span class="badge bad">Baja</span>' : '<span class="badge ok">Activo</span>'}</td><td>${App.puede('contactos') ? `<button class="btn sm danger" onclick="Contacts.del('${esc(c.email)}')">✕</button>` : ''}</td></tr>`).join('')}</tbody></table>${r.total > 500 ? '<p class="small muted">Mostrando los 500 más recientes.</p>' : ''}` : '<div class="empty">Sube tu primera base para empezar.</div>';
   },
   async analizar(ev) {
     ev.preventDefault();
@@ -615,7 +623,7 @@ const Contacts = {
           <div><h3>Proveedores de correo</h3>${barras(p.dominios, C.blue)}${p.organizaciones.length ? `<h3>Organizaciones</h3>${barras(p.organizaciones, C.grape)}` : ''}</div>
         </div>
         ${p.ejemplosInvalidos.length ? `<p class="small muted">Ejemplos de correos con error: ${esc(p.ejemplosInvalidos.join(', '))}</p>` : ''}
-        ${App.puede() ? `<form onsubmit="return Contacts.importar(event)" style="margin-top:16px;border-top:1px solid var(--line);padding-top:16px">
+        ${App.puede('contactos') ? `<form onsubmit="return Contacts.importar(event)" style="margin-top:16px;border-top:1px solid var(--line);padding-top:16px">
           <h2>2. Importar</h2>
           <label>Nombre de la lista</label><input type="text" name="lista" value="${esc(p.archivo.replace(/\.[^.]+$/, ''))}">
           <label class="check"><input type="checkbox" name="confirmo" value="si" required> Confirmo que estas personas autorizaron recibir comunicaciones (Ley 1581 de 2012, Habeas Data) o que se trata de contactos institucionales o de prensa.</label>
@@ -663,7 +671,7 @@ const Directorio = {
       Directorio.sel('#dr-estado', Object.entries(d.estados), 'Cualquier estado');
       Directorio.registro(); Directorio.google(); Directorio.ig();
     }
-    document.querySelectorAll('#v-directorio [data-solo-admin]').forEach(el => { el.style.display = App.puede() ? '' : 'none'; });
+    document.querySelectorAll('#v-directorio [data-solo-admin]').forEach(el => { el.style.display = App.puede('directorio') ? '' : 'none'; });
     $('#dr-exportar').href = '/api/directorio/exportar?' + Directorio.filtros();
     $('#dr-kpis').innerHTML = [
       kpi('En el directorio', nf(r.total), `${nf(r.porFuente.google || 0)} de Google Maps · ${nf(r.porFuente.instagram || 0)} de Instagram`, C.violet),
@@ -684,7 +692,7 @@ const Directorio = {
       <div class="row" style="justify-content:center;margin-top:12px">${d.items.length > ver.length ? `<button class="btn alt" type="button" onclick="Directorio.limite += 40; Directorio.lista()">Ver más (${nf(d.filtrados - ver.length)} restantes)</button>` : ''}${d.filtrados > d.items.length && ver.length === d.items.length ? '<p class="small muted">Usa los filtros o descarga el Excel para ver todos.</p>' : ''}</div>` : '<div class="empty">No hay registros con estos filtros.</div>';
   },
   card(x) {
-    const d = Directorio.d, puede = App.puede();
+    const d = Directorio.d, puede = App.puede('directorio');
     const tel = x.telefono ? `<a class="btn sm alt" href="tel:${esc(x.telefono.replace(/\s/g, ''))}">📞 Llamar</a>` : '';
     const wa = x.whatsapp && puede ? `<button class="btn sm wa" type="button" onclick="Directorio.invitar('${x.id}')">WhatsApp</button>` : '';
     return `<div class="dr"><div class="h"><div style="min-width:0"><b>${esc(x.nombre)}</b><div class="m">${esc([x.categoria || d.tipos[x.tipo], x.municipio].filter(Boolean).join(' · '))}</div></div><span class="dr-src ${x.fuente}">${x.consentimiento ? '✓ Inscrito' : esc(d.fuentes[x.fuente] || '')}</span></div>
@@ -704,7 +712,7 @@ const Directorio = {
         <div class="small" style="overflow-wrap:anywhere"><b>${esc(d.registro)}</b></div>
         <div class="row" style="margin-top:8px"><button class="btn sm alt" type="button" onclick="copiar('${esc(d.registro)}', this)">Copiar enlace</button><a class="btn sm alt" href="${esc(d.registro)}" target="_blank" rel="noopener">Ver formulario</a><a class="btn sm alt" href="/api/directorio/qr.png" download="qr-inscripcion.png">Descargar QR</a><a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/?text=${txt}">Compartir</a></div>
         <p class="small muted" style="margin-bottom:0">Ponlo en las historias de Instagram, en la Feria, en las ruedas de prensa y en los grupos de WhatsApp de comerciantes.</p></div></div>
-      ${App.puede() ? `<details style="margin-top:12px"><summary class="small"><b>Mensaje de invitación por WhatsApp</b> (se envía uno por uno desde el directorio)</summary>
+      ${App.puede('directorio') ? `<details style="margin-top:12px"><summary class="small"><b>Mensaje de invitación por WhatsApp</b> (se envía uno por uno desde el directorio)</summary>
         <textarea id="dr-msg" rows="5" style="margin-top:8px">${esc(d.mensaje)}</textarea><p class="small muted">{nombre} se cambia por el nombre del negocio y {enlace} por el enlace del formulario.</p>
         <button class="btn sm" type="button" onclick="Directorio.guardarMensaje()">Guardar mensaje</button></details>` : ''}`;
   },
@@ -716,7 +724,7 @@ const Directorio = {
       return;
     }
     $('#dr-google').innerHTML = `<h2>2. Negocios de Google Maps</h2><p class="muted">Datos públicos de negocios desde la API oficial de Google. Sirven para contacto institucional: llamar o invitar por WhatsApp a inscribirse. A estos negocios no se les envían correos masivos si no se han inscrito.</p>
-      ${App.puede() ? `<label>Municipios</label><div class="chips">${d.municipios.map((m, i) => `<label class="check" style="margin:0"><input type="checkbox" name="dr-m" value="${esc(m)}" ${i < 3 ? 'checked' : ''}> ${esc(m)}</label>`).join('')}</div>
+      ${App.puede('directorio') ? `<label>Municipios</label><div class="chips">${d.municipios.map((m, i) => `<label class="check" style="margin:0"><input type="checkbox" name="dr-m" value="${esc(m)}" ${i < 3 ? 'checked' : ''}> ${esc(m)}</label>`).join('')}</div>
       <label>Buscar un tipo de negocio</label><div class="row"><input type="text" id="dr-cat" list="dr-cats" placeholder="Ej.: restaurantes, droguerías, hoteles" style="flex:1;min-width:0;margin:0"><button class="btn" type="button" onclick="Directorio.buscar()">Buscar</button></div>
       <datalist id="dr-cats">${d.categorias.map(c => `<option>${esc(c)}</option>`).join('')}</datalist>
       <div class="row" style="margin-top:10px"><button class="btn hot" type="button" id="dr-barrer" onclick="Directorio.barrido()">Barrido completo (${d.categorias.length} categorías)</button></div>
@@ -726,7 +734,7 @@ const Directorio = {
   ig() {
     const d = Directorio.d;
     $('#dr-ig').innerHTML = `<h2>3. Cuentas profesionales de Instagram</h2><p class="muted">Escribe los usuarios de negocios o creadores que ya conoces y la API oficial trae los datos públicos de su perfil: nombre, biografía, sitio web y seguidores. Solo funciona con cuentas de empresa o de creador.</p>
-      ${!d.instagram ? '<div class="demo-banner">Conecta Instagram en Ajustes (IG_ACCESS_TOKEN e IG_USER_ID) para usar esta búsqueda.</div>' : App.puede() ? `<textarea id="dr-igu" rows="3" placeholder="@negocio1 @creador2 @tienda3"></textarea><button class="btn" type="button" style="margin-top:8px" onclick="Directorio.consultarIg()">Consultar perfiles</button><div id="dr-igr"></div>` : ''}`;
+      ${!d.instagram ? '<div class="demo-banner">Conecta Instagram en Ajustes (IG_ACCESS_TOKEN e IG_USER_ID) para usar esta búsqueda.</div>' : App.puede('directorio') ? `<textarea id="dr-igu" rows="3" placeholder="@negocio1 @creador2 @tienda3"></textarea><button class="btn" type="button" style="margin-top:8px" onclick="Directorio.consultarIg()">Consultar perfiles</button><div id="dr-igr"></div>` : ''}`;
   },
   municipios: () => [...document.querySelectorAll('input[name="dr-m"]:checked')].map(i => i.value),
   async buscar() {
@@ -954,17 +962,24 @@ const Inicio = {
     const hora = new Date().getHours();
     $('#hola').textContent = `${hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'}, ${e.nombre}`;
     $('#hoy-fecha').textContent = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase());
-    const diseno = e.rol === 'diseno';
+    const diseno = !App.aprueba() && App.nivel('piezas') === 'subir';
     Inicio.instalar();
     $('#hoy-kpis').innerHTML = [
       kpi(diseno ? 'Mis piezas en revisión' : 'Piezas por revisar', nf(h.piezas.revision), h.piezas.revision ? 'Esperan visto bueno' : 'Todo al día', C.orange),
       kpi('Con cambios pedidos', nf(h.piezas.cambios), diseno ? 'Revisa los comentarios' : 'Esperando nueva versión', '#c0392b'),
       kpi('Publicaciones esta semana', nf(h.agenda.length), 'En el calendario', C.violet),
-      diseno ? kpi('Aprobadas', nf(h.piezas.aprobadas), 'Listas para publicar', C.green) : kpi('Contactos en la base', nf(h.contactos), h.correo ? 'Enviando: ' + esc(h.correo.nombre) : 'Sin envíos en curso', C.blue),
+      h.contactos === undefined ? kpi('Aprobadas', nf(h.piezas.aprobadas), 'Listas para publicar', C.green) : kpi('Contactos en la base', nf(h.contactos), h.correo ? 'Enviando: ' + esc(h.correo.nombre) : 'Sin envíos en curso', C.blue),
     ].join('');
-    const acciones = diseno
-      ? [['Subir una pieza', 'piezas', '+', C.orange, 'Piezas.nueva()'], ['Ver calendario', 'calendario', '▦', C.violet]]
-      : [['Agregar a la agenda', 'agenda', '+', C.green, "App.go('agenda');Agenda.editar()"], ['Revisar piezas', 'piezas', '✓', C.orange], ['Nuevo correo', 'correos', '✉', C.blue, "App.go('correos');Mail.nueva()"], ['Analizar un enlace', 'analizar', '↗', C.violet], ['Planear publicación', 'calendario', '▦', C.grape]];
+    // Accesos rápidos según las funciones del usuario.
+    const acciones = [
+      App.puede('agenda') && ['Agregar a la agenda', 'agenda', '+', C.green, "App.go('agenda');Agenda.editar()"],
+      diseno ? ['Subir una pieza', 'piezas', '+', C.orange, 'Piezas.nueva()'] : App.nivel('piezas') && ['Revisar piezas', 'piezas', '✓', C.orange],
+      App.puede('correos') && ['Nuevo correo', 'correos', '✉', C.blue, "App.go('correos');Mail.nueva()"],
+      App.puede('analizar') && ['Analizar un enlace', 'analizar', '↗', C.violet],
+      App.nivel('calendario') && [App.puede('calendario') ? 'Planear publicación' : 'Ver calendario', 'calendario', '▦', C.grape],
+      App.puede('directorio') && ['Directorio y red', 'directorio', '⌖', C.blue],
+      ['Mi manual de uso', 'inicio', '?', '#2a2672', "window.open('/manual.html', '_blank')"],
+    ].filter(Boolean);
     $('#hoy-acciones').innerHTML = acciones.map(([t, v, i, c, fn]) => `<button type="button" onclick="${fn || `App.go('${v}')`}"><i style="background:${c}">${i}</i>${t}</button>`).join('');
     const est = App.estado.estadosPieza;
     $('#hoy-piezas').innerHTML = h.piezas.recientes.length ? h.piezas.recientes.map(p => `<div class="pcard" onclick="Piezas.abrir('${p.id}')"><div class="th">${p.miniatura && p.miniatura.tipo === 'imagen' ? `<img src="${esc(p.miniatura.url)}" alt="" loading="lazy">` : p.miniatura && p.miniatura.tipo === 'video' ? '▶' : '▢'}</div><div style="min-width:0"><b>${esc(p.titulo)}</b><div class="small muted">${esc(p.autorNombre || '')} · ${esc(p.canal)} · ${fdate(p.actualizado)}</div></div><span class="badge st-${p.estado}">${esc(est[p.estado])}</span></div>`).join('') : '<div class="empty">Aún no hay piezas.</div>';
@@ -991,11 +1006,11 @@ const Piezas = {
       const v = p.versiones[p.versiones.length - 1];
       const media = !v ? '▢' : v.tipo === 'imagen' ? `<img src="${esc(v.url)}" alt="" loading="lazy">` : v.tipo === 'video' ? `<video src="${esc(v.url)}#t=0.5" muted preload="metadata"></video><span class="vt">▶ video</span>` : '<span>PDF</span>';
       return `<div class="pz" onclick="Piezas.abrir('${p.id}')"><div class="im">${media}</div><div class="tx"><b>${esc(p.titulo)}</b><div class="small muted">${esc(p.canal)}${p.fechaPublicacion ? ' · ' + esc(p.fechaPublicacion) : ''}</div><div class="row" style="justify-content:space-between;margin-top:8px"><span class="badge st-${p.estado}">${esc(est[p.estado])}</span><span class="small muted">v${p.versiones.length} · ${esc(p.autorNombre || p.autor)}</span></div></div></div>`;
-    }).join('') : `<div class="card empty" style="grid-column:1/-1">No hay piezas en este estado.${App.estado.rol !== 'consulta' ? ' <a href="#" onclick="Piezas.nueva();return false">Sube una pieza</a>.' : ''}</div>`;
+    }).join('') : `<div class="card empty" style="grid-column:1/-1">No hay piezas en este estado.${App.puede('piezas') ? ' <a href="#" onclick="Piezas.nueva();return false">Sube una pieza</a>.' : ''}</div>`;
     App.badge();
   },
   nueva() {
-    if (App.estado.rol === 'consulta') return toast('Tu usuario es de solo consulta.');
+    if (!App.puede('piezas')) return toast('Tu usuario solo puede ver las piezas.');
     if (!$('#v-piezas').classList.contains('on')) App.go('piezas');
     const canales = App.estado.canales.map(c => `<option>${esc(c)}</option>`).join('');
     Modal.open(`${Modal.head('Subir pieza para revisión')}
@@ -1032,7 +1047,7 @@ const Piezas = {
   async abrir(id, verN) {
     if (!Piezas.items.find(x => x.id === id)) Piezas.items = await api('/api/piezas');
     const p = Piezas.items.find(x => x.id === id); if (!p) return;
-    const e = App.estado, admin = e.rol === 'admin', puedeSubir = e.rol !== 'consulta';
+    const e = App.estado, admin = App.aprueba(), puedeSubir = App.puede('piezas');
     const v = p.versiones[(verN || p.versiones.length) - 1];
     const media = !v ? '<div class="empty" style="color:#fff">Sin archivo</div>' : v.tipo === 'imagen' ? `<a href="${esc(v.url)}" target="_blank" rel="noopener"><img src="${esc(v.url)}" alt="${esc(p.titulo)}"></a>` : v.tipo === 'video' ? `<video src="${esc(v.url)}" controls playsinline></video>` : `<a class="btn alt" href="${esc(v.url)}" target="_blank" rel="noopener">Abrir PDF</a>`;
     const r = p.revisionIA && p.revisionIA.resultado;
@@ -1054,7 +1069,7 @@ const Piezas = {
           ${puedeSubir ? `<button class="btn sm alt" style="margin-top:10px" id="ia-pz" onclick="Piezas.revisarIA('${p.id}')">✦ Revisar ortografía y datos con IA</button>` : ''}
           <h3>Lista de verificación</h3><form class="chk" id="pz-chk">${chk}</form>
           <h3>Comentarios</h3>
-          <div class="thread">${p.comentarios.length ? p.comentarios.map(c => `<div class="msg ${c.rol === 'diseno' ? 'diseno' : ''}"><b>${esc(c.autorNombre || c.autor)}</b>${c.decision ? ` · <span class="badge st-${c.decision}">${esc(e.estadosPieza[c.decision])}</span>` : ''}<div>${esc(c.texto)}</div><div class="meta">${fdate(c.fecha)} · versión ${c.version}</div></div>`).join('') : '<p class="muted small">Sin comentarios todavía.</p>'}</div>
+          <div class="thread">${p.comentarios.length ? p.comentarios.map(c => `<div class="msg ${c.rol && c.rol !== 'admin' ? 'diseno' : ''}"><b>${esc(c.autorNombre || c.autor)}</b>${c.decision ? ` · <span class="badge st-${c.decision}">${esc(e.estadosPieza[c.decision])}</span>` : ''}<div>${esc(c.texto)}</div><div class="meta">${fdate(c.fecha)} · versión ${c.version}</div></div>`).join('') : '<p class="muted small">Sin comentarios todavía.</p>'}</div>
           ${puedeSubir ? `<textarea id="pz-com" style="min-height:70px" placeholder="${admin ? 'Escribe qué hay que corregir (ej.: falta la tilde en Música, cambiar hora a 7:00 p. m.)' : 'Escribe un comentario para la jefatura'}"></textarea>` : ''}
           <div class="row" style="margin-top:10px">
             ${admin ? `<button class="btn" style="background:var(--good)" onclick="Piezas.decidir('${p.id}','aprobada')">✓ Aprobar</button><button class="btn danger" onclick="Piezas.decidir('${p.id}','cambios')">Pedir cambios</button><button class="btn alt" onclick="Piezas.decidir('${p.id}','publicada')">Marcar publicada</button>` : ''}
@@ -1106,7 +1121,7 @@ const Cal = {
     const fin = new Date(ini); fin.setDate(ini.getDate() + 41);
     Cal.eventos = await api(`/api/calendario?desde=${Cal.iso(ini)}&hasta=${Cal.iso(fin)}`);
     $('#cal-mes').textContent = Cal.mes.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase());
-    $('#cal-nuevo').style.display = App.estado.rol === 'admin' ? '' : 'none';
+    $('#cal-nuevo').style.display = App.puede('calendario') ? '' : 'none';
     const hoy = Cal.iso(new Date());
     let html = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<div class="h">${d}</div>`).join('');
     for (let i = 0; i < 42; i++) {
@@ -1124,7 +1139,7 @@ const Cal = {
   },
   mover(n) { Cal.mes = new Date(Cal.mes.getFullYear(), Cal.mes.getMonth() + n, 1); Cal.load(); },
   editar(id, fecha) {
-    const admin = App.estado.rol === 'admin';
+    const admin = App.puede('calendario');
     const e = id ? Cal.eventos.find(x => x.id === id) : { fecha: fecha || Cal.iso(new Date()), estado: 'idea' };
     if (!id && !admin) return;
     const ro = admin ? '' : 'disabled';
@@ -1300,7 +1315,7 @@ const Agenda = {
     $('#ag-tabs').innerHTML = Object.entries(vistas).map(([k, v]) => `<button class="${Agenda.vista === k ? 'on' : ''}" onclick="Agenda.vista='${k}';Agenda.load()">${v}</button>`).join('');
     const [d, h] = Agenda.periodo();
     if (Agenda.vista !== 'rango') { $('#ag-desde').value = d; $('#ag-hasta').value = h; }
-    const puede = App.puede();
+    const puede = App.puede('agenda');
     $('#ag-nueva').style.display = puede ? '' : 'none'; $('#ag-fab').style.visibility = puede ? '' : 'hidden';
     [Agenda.items] = await Promise.all([api(`/api/agenda?desde=${d}&hasta=${h}`), Equipo.cargar()]);
     const n = e => Agenda.items.filter(a => a.estado === e).length;
@@ -1385,7 +1400,7 @@ const Agenda = {
         <label>Fotos de la actividad</label>
         <div class="row"><label class="btn alt" style="margin:0">📷 Tomar o elegir fotos<input type="file" accept="image/*" multiple hidden onchange="Agenda.fotosEnForm(this)"></label><span class="small muted" id="ag-subiendo"></span></div>
         <div class="fotos-prev" id="ag-fotos"></div>
-        <div class="row" style="margin-top:18px"><button class="btn hot" type="submit" id="ag-btn">Guardar</button>${id && App.puede() ? `<button class="btn danger" type="button" onclick="Modal.close();Agenda.borrar('${id}')">🗑 Eliminar</button>` : ''}</div>
+        <div class="row" style="margin-top:18px"><button class="btn hot" type="submit" id="ag-btn">Guardar</button>${id && App.puede('agenda') ? `<button class="btn danger" type="button" onclick="Modal.close();Agenda.borrar('${id}')">🗑 Eliminar</button>` : ''}</div>
       </form>`, 'sm');
     Agenda.pintarFotos();
   },
@@ -1437,7 +1452,7 @@ const Agenda = {
     Modal.open(`<div class="visor"><div class="modal-h"><h2>Foto ${i + 1} de ${a.fotos.length}</h2><button class="x" type="button" onclick="Modal.close()" aria-label="Cerrar">×</button></div>
       <img src="${esc(mini(f.url, 1200).replace('c_fill', 'c_limit').replace(/h_\d+,/, ''))}" alt="">
       <div class="row visor-acc">${i > 0 ? `<button class="btn alt" type="button" onclick="Agenda.verFoto('${id}', ${i - 1})">‹ Anterior</button>` : ''}${i < a.fotos.length - 1 ? `<button class="btn alt" type="button" onclick="Agenda.verFoto('${id}', ${i + 1})">Siguiente ›</button>` : ''}
-      <a class="btn alt" href="${esc(f.url)}" target="_blank" rel="noopener">Ver original</a>${App.puede() ? `<button class="btn danger" type="button" onclick="Agenda.quitarFoto('${id}', ${i})">🗑 Eliminar foto</button>` : ''}</div></div>`);
+      <a class="btn alt" href="${esc(f.url)}" target="_blank" rel="noopener">Ver original</a>${App.puede('agenda') ? `<button class="btn danger" type="button" onclick="Agenda.quitarFoto('${id}', ${i})">🗑 Eliminar foto</button>` : ''}</div></div>`);
   },
   async quitarFoto(id, i) {
     const a = Agenda.items.find(x => x.id === id); const f = a && a.fotos[i];
@@ -1459,24 +1474,44 @@ const Ajustes = {
     App.estado.remitentes = rs;
     Ajustes.us = us; Ajustes.rs = rs;
     const roles = App.estado.roles;
-    $('#usr-list').innerHTML = `<table class="t"><thead><tr><th>Usuario</th><th>Rol</th><th></th></tr></thead><tbody>${us.map(u => `<tr><td><b>${esc(u.nombre)}</b><div class="small muted">@${esc(u.usuario)}${u.activo === false ? ' · desactivado' : ''}</div></td><td>${esc((roles[u.rol] || u.rol).split(' (')[0])}${u.principal ? ' <span class="badge">principal</span>' : ''}</td><td>${u.principal ? '' : `<div class="row" style="justify-content:flex-end"><button class="btn sm alt" onclick="Ajustes.usuario('${esc(u.usuario)}')">Editar</button><button class="btn sm danger" onclick="Ajustes.borrarUsuario('${esc(u.usuario)}')">✕</button></div>`}</td></tr>`).join('')}</tbody></table>`;
+    $('#usr-list').innerHTML = `<table class="t"><thead><tr><th>Usuario</th><th>Rol y funciones</th><th></th></tr></thead><tbody>${us.map(u => `<tr><td><b>${esc(u.nombre)}</b><div class="small muted">@${esc(u.usuario)}${u.activo === false ? ' · desactivado' : ''}</div></td><td>${esc((roles[u.rol] || u.rol).split(' (')[0])}${u.principal ? ' <span class="badge">principal</span>' : ''}${u.rol !== 'admin' ? `<div class="small muted">${esc(Ajustes.resumenFunciones(u.funciones))}</div>` : ''}</td><td><div class="row" style="justify-content:flex-end"><a class="btn sm alt" href="/manual.html?usuario=${encodeURIComponent(u.usuario)}" target="_blank">📖 Manual</a>${u.principal ? '' : `<button class="btn sm alt" onclick="Ajustes.usuario('${esc(u.usuario)}')">Editar</button><button class="btn sm danger" onclick="Ajustes.borrarUsuario('${esc(u.usuario)}')">✕</button>`}</div></td></tr>`).join('')}</tbody></table>`;
     $('#rem-list').innerHTML = rs.length ? `<table class="t"><tbody>${rs.map(r => `<tr><td><b>${esc(r.nombre)}</b><div class="small muted">${esc(r.email)} · ${r.gmail ? 'Gmail' : esc(r.host)} · ${r.limiteDiario ? `máx. ${nf(r.limiteDiario)}/día` : 'sin límite diario'}</div></td><td><div class="row" style="justify-content:flex-end"><button class="btn sm alt" onclick="Ajustes.probar('${r.id}', this)">Probar</button>${r.principal ? '<span class="badge">variables</span>' : `<button class="btn sm alt" onclick="Ajustes.remitente('${r.id}')">Editar</button><button class="btn sm danger" onclick="Ajustes.borrarRem('${r.id}')">✕</button>`}</div></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Aún no hay correos para enviar.</div>';
   },
+  resumenFunciones(f) {
+    const M = App.estado.modulos;
+    return Object.entries(f || {}).map(([k, v]) => `${M[k] ? M[k].nombre : k}: ${M[k] ? (M[k].niveles[v] || v).toLowerCase() : v}`).join(' · ') || 'Sin funciones';
+  },
+  // Tabla de funciones: una fila por sección con "Sin acceso" y los niveles posibles.
+  funcionesHtml(f) {
+    const M = App.estado.modulos;
+    return `<div class="funcs">${Object.entries(M).map(([k, m]) => `<div class="fn"><span>${esc(m.nombre)}</span><select name="f_${k}" onchange="Ajustes.alCambiarFuncion()"><option value="">Sin acceso</option>${Object.entries(m.niveles).map(([n, t]) => `<option value="${n}" ${f[k] === n ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`).join('')}</div>`;
+  },
   usuario(u) {
-    const x = u ? Ajustes.us.find(y => y.usuario === u) : { rol: 'diseno', activo: true };
+    const x = u ? Ajustes.us.find(y => y.usuario === u) : { rol: 'diseno', activo: true, funciones: App.estado.plantillasUsuario.diseno };
     Modal.open(`${Modal.head(u ? 'Editar usuario' : 'Nuevo usuario')}
-      <form onsubmit="return Ajustes.guardarUsuario(event)">
+      <form id="usr-form" onsubmit="return Ajustes.guardarUsuario(event)">
         <label>Nombre de la persona</label><input type="text" name="nombre" required value="${esc(x.nombre || '')}" placeholder="Ej.: Carolina (diseño)">
         <label>Usuario para ingresar</label><input type="text" name="usuario" required value="${esc(x.usuario || '')}" ${u ? 'readonly' : ''} placeholder="sin espacios, ej.: carolina.diseno" autocomplete="off">
         <label>${u ? 'Nueva clave (déjala vacía para no cambiarla)' : 'Clave'}</label><input type="text" name="clave" ${u ? '' : 'required'} minlength="5" autocomplete="new-password" placeholder="Mínimo 5 caracteres">
-        <label>Rol</label><select name="rol">${Object.entries(App.estado.roles).map(([k, v]) => `<option value="${k}" ${k === x.rol ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+        <label>Tipo de usuario</label><select name="rol" onchange="Ajustes.alCambiarRol(this.value)">${Object.entries(App.estado.roles).map(([k, v]) => `<option value="${k}" ${k === x.rol ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+        <div id="usr-funcs" ${x.rol === 'admin' ? 'hidden' : ''}><label>Funciones asignadas</label><p class="small muted" style="margin:0 0 6px">Elige qué puede ver o hacer en cada sección. Si cambias algo, el tipo pasa a "Personalizado".</p>${Ajustes.funcionesHtml(x.funciones || {})}</div>
+        <p class="small muted" id="usr-admin" ${x.rol === 'admin' ? '' : 'hidden'}>El administrador puede ver y hacer todo, incluidos los usuarios y los correos de envío.</p>
         <label class="check"><input type="checkbox" name="activo" value="true" ${x.activo !== false ? 'checked' : ''}> Usuario activo</label>
         <div class="row" style="margin-top:16px"><button class="btn hot" type="submit">Guardar</button></div>
       </form>`, 'sm');
   },
+  alCambiarRol(rol) {
+    const f = $('#usr-form');
+    $('#usr-funcs').hidden = rol === 'admin'; $('#usr-admin').hidden = rol !== 'admin';
+    const pl = App.estado.plantillasUsuario[rol];
+    if (pl) Object.keys(App.estado.modulos).forEach(k => { f['f_' + k].value = pl[k] || ''; });
+  },
+  alCambiarFuncion() { $('#usr-form').rol.value = 'personalizado'; },
   async guardarUsuario(ev) {
     ev.preventDefault();
     const b = Object.fromEntries(new FormData(ev.target)); b.activo = Boolean(b.activo);
+    b.funciones = {};
+    for (const k of Object.keys(App.estado.modulos)) { if (b['f_' + k]) b.funciones[k] = b['f_' + k]; delete b['f_' + k]; }
     try { await api('/api/usuarios', { method: 'POST', body: b }); Modal.close(); toast(`Usuario guardado. Comparte el usuario "${b.usuario}" y la clave con la persona.`); Ajustes.load(); } catch (e) { toast(e.message); }
     return false;
   },
