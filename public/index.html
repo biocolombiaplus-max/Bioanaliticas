@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bioanalíticas · Panel</title>
+<link rel="icon" href="/img/logo_sm.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><img src="/img/logo_sm.png" alt=""><div><b>Bioanalíticas</b><span>Feria de la Uva 2026</span></div></div>
+    <nav class="nav" id="nav">
+      <button data-v="resumen" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/></svg>Resumen</button>
+      <button data-v="correos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Campañas de correo</button>
+      <button data-v="contactos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-5.5"/></svg>Base de datos</button>
+      <button data-v="instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>Instagram</button>
+      <button data-v="informes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 17v-3M12 17v-6M16 17v-4"/></svg>Informes ejecutivos</button>
+      <button data-v="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
+    </nav>
+    <div class="stripe"></div>
+    <div class="foot">Sesión: <b id="who">—</b> · <a href="/logout">Salir</a></div>
+  </aside>
+
+  <main>
+    <!-- RESUMEN -->
+    <section class="view on" id="v-resumen">
+      <div class="top"><div><h1>Tablero de control</h1><p>El impacto de la Feria de la Uva en correo e Instagram, en un solo lugar.</p></div>
+        <div class="row"><button class="btn alt" onclick="App.refresh()">Actualizar</button><button class="btn hot" onclick="App.go('informes')">Generar informe</button></div></div>
+      <div id="demo-res"></div>
+      <div id="sending"></div>
+      <div class="grid g6" id="kpis"></div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card"><div class="card-h"><h2>Embudo del correo</h2><span class="muted small">Todas las campañas</span></div><div class="funnel" id="funnel"></div>
+          <p class="muted small" style="margin-top:14px">El clic en el botón “Ver la programación” es la métrica más confiable de interés real.</p></div>
+        <div class="card"><div class="card-h"><h2>Seguidores nuevos por día</h2><span class="muted small">Últimos 28 días</span></div><div class="chart-box sm"><canvas id="ch-followers"></canvas></div></div>
+      </div>
+      <div class="card"><div class="card-h"><h2>Publicaciones monitoreadas</h2><button class="btn sm alt" onclick="App.go('instagram')">Agregar publicación</button></div><div id="res-posts"></div></div>
+    </section>
+
+    <!-- CORREOS -->
+    <section class="view" id="v-correos">
+      <div class="top"><div><h1>Campañas de correo</h1><p>Invitaciones personalizadas, enviadas una cada <b id="delay-lbl">10</b> segundos para cuidar la reputación del remitente.</p></div>
+        <button class="btn" onclick="Mail.nueva()">+ Nueva campaña</button></div>
+      <div id="smtp-warn"></div>
+      <div class="grid g2">
+        <div class="card">
+          <div class="card-h"><h2 id="ed-title">Nueva campaña</h2><span id="ed-state"></span></div>
+          <form id="ed" onsubmit="return false">
+            <label>Nombre interno de la campaña</label><input type="text" name="nombre">
+            <label>Nombre del remitente <span class="muted">(lo primero que se ve en la notificación)</span></label><input type="text" name="remitenteNombre">
+            <label>Asunto</label><input type="text" name="asunto" maxlength="120"><div class="hint">Usa <code>{{nombre}}</code> para saludar a cada persona por su nombre. Ideal: menos de 60 caracteres.</div>
+            <label>Texto de vista previa</label><input type="text" name="preheader" maxlength="160"><div class="hint">Aparece junto al asunto en la bandeja de entrada y en la notificación del celular.</div>
+            <label>Titular del correo</label><input type="text" name="titular">
+            <label>Mensaje</label><textarea name="mensaje"></textarea><div class="hint">Separa los párrafos con una línea en blanco.</div>
+            <div class="grid g2"><div><label>Texto del botón</label><input type="text" name="botonTexto"></div><div><label>Enlace del botón</label><input type="url" name="botonUrl"></div></div>
+            <label>Frase de cierre</label><input type="text" name="cierre">
+            <label>Enviar a</label><select name="segmento" id="seg"></select>
+            <div class="row" style="margin-top:18px">
+              <button class="btn" onclick="Mail.guardar()">Guardar</button>
+              <button class="btn alt" onclick="Mail.prueba()">Enviar prueba</button>
+              <button class="btn hot" id="btn-send" onclick="Mail.enviar()">Iniciar envío</button>
+            </div>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-h"><h2>Así lo verán</h2><span class="muted small">Notificación en el celular</span></div>
+          <div class="inbox"><div class="notif" id="notif"><img src="/img/logo_sm.png" alt=""><div style="min-width:0;flex:1"><div class="who"><b id="n-from">—</b><span>ahora</span></div><div class="sub" id="n-sub">—</div><div class="pre" id="n-pre">—</div></div></div></div>
+          <iframe class="frame" id="frame" title="Vista previa del correo"></iframe>
+        </div>
+      </div>
+      <div class="card"><div class="card-h"><h2>Historial de campañas</h2></div><div id="camp-list"></div></div>
+      <div class="card" id="camp-detail" style="display:none"><div class="card-h"><h2 id="cd-title">Actividad</h2><span class="muted small">Envíos, aperturas y clics por hora</span></div><div class="chart-box"><canvas id="ch-activity"></canvas></div><div class="table-wrap" style="margin-top:16px" id="cd-table"></div></div>
+    </section>
+
+    <!-- CONTACTOS -->
+    <section class="view" id="v-contactos">
+      <div class="top"><div><h1>Base de datos</h1><p>Solo personas que autorizaron recibir información. Las bajas se respetan siempre.</p></div></div>
+      <div class="grid g4" id="ct-kpis"></div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card">
+          <h2>Subir base de datos</h2>
+          <p class="muted">Archivo CSV (desde Excel: Archivo → Guardar como → CSV). Columnas reconocidas: <code>email</code> o <code>correo</code>, <code>nombre</code>, <code>apellido</code>, <code>ciudad</code>, <code>telefono</code> y, si existe, <code>autorizacion</code> (Sí/No).</p>
+          <form id="up" onsubmit="return Contacts.subir(event)">
+            <label>Archivo</label><input type="file" name="archivo" accept=".csv,.txt,text/csv" required>
+            <label>Nombre de la lista</label><input type="text" name="lista" placeholder="Ej.: Registrados feria 2026">
+            <label class="check"><input type="checkbox" name="confirmo" value="si" required> Confirmo que todas las personas de esta base autorizaron recibir comunicaciones (Ley 1581 de 2012, Habeas Data).</label>
+            <div class="row" style="margin-top:16px"><button class="btn" type="submit">Importar</button><a class="btn alt" href="data:text/csv;charset=utf-8,email%2Cnombre%2Cciudad%2Cautorizacion%0Amaria%40ejemplo.com%2CMar%C3%ADa%20P%C3%A9rez%2CVilla%20del%20Rosario%2CS%C3%AD%0A" download="plantilla_contactos.csv">Descargar plantilla</a></div>
+          </form>
+          <div id="up-res" style="margin-top:14px"></div>
+        </div>
+        <div class="card">
+          <h2>Buenas prácticas para llegar a la bandeja principal</h2>
+          <ol class="list-steps">
+            <li>Envía desde un dominio propio (ej. <code>hola@feriadelauva.co</code>) con SPF, DKIM y DMARC configurados en tu proveedor.</li>
+            <li>Si el dominio es nuevo, empieza con pocos envíos diarios y sube poco a poco (ajusta <code>DAILY_LIMIT</code>).</li>
+            <li>Escribe como una persona: asunto claro, sin MAYÚSCULAS ni muchos signos de exclamación.</li>
+            <li>Envía siempre una prueba a Gmail y Outlook antes de lanzar.</li>
+            <li>Nunca reactives a quien se dio de baja: el sistema lo bloquea automáticamente.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="card"><div class="card-h"><h2>Contactos</h2><input type="text" id="ct-q" placeholder="Buscar por nombre o correo" style="max-width:280px" oninput="Contacts.load()"></div><div class="table-wrap" id="ct-table"></div></div>
+    </section>
+
+    <!-- INSTAGRAM -->
+    <section class="view" id="v-instagram">
+      <div class="top"><div><h1>Instagram</h1><p>Pega el enlace de cualquier publicación y obtén su análisis al instante.</p></div>
+        <button class="btn alt" onclick="IG.account(true)">Actualizar datos</button></div>
+      <div id="demo-ig"></div>
+      <div class="card">
+        <form class="row" onsubmit="return IG.add(event)" style="align-items:flex-end">
+          <div style="flex:3;min-width:240px"><label>Enlace de la publicación</label><input type="url" name="url" placeholder="https://www.instagram.com/p/..." required></div>
+          <div style="flex:1.4;min-width:180px"><label>Etiqueta (opcional)</label><input type="text" name="etiqueta" placeholder="Ej.: Programación oficial"></div>
+          <button class="btn hot" type="submit">Analizar publicación</button>
+        </form>
+      </div>
+      <div class="grid g2" id="posts" style="margin-top:16px"></div>
+      <h2 style="margin:28px 0 12px">Cuenta completa</h2>
+      <div class="grid g6" id="acc-kpis"></div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card"><div class="card-h"><h2>Crecimiento de seguidores</h2><span class="muted small">Seguidores nuevos por día</span></div><div class="chart-box"><canvas id="ch-acc-growth"></canvas></div></div>
+        <div class="card"><div class="card-h"><h2>Alcance de las últimas publicaciones</h2><span class="muted small">Cuentas alcanzadas</span></div><div class="chart-box"><canvas id="ch-acc-posts"></canvas></div></div>
+      </div>
+      <div class="card"><div class="card-h"><h2>Últimas publicaciones</h2><span class="muted small">Ordenadas por puntaje de impacto</span></div><div class="table-wrap" id="acc-table"></div></div>
+    </section>
+
+    <!-- INFORMES -->
+    <section class="view" id="v-informes">
+      <div class="top"><div><h1>Informes ejecutivos</h1><p>Informes listos para presentar, con análisis, gráficas y recomendaciones. Descárgalos en PDF.</p></div></div>
+      <div class="grid g3">
+        <div class="card"><h2>Informe de una publicación</h2><p class="muted">Alcance, interacciones, sentimiento de comentarios y recomendaciones.</p>
+          <label>Publicación</label><select id="r-post"></select>
+          <label>Incluir campaña de correo (opcional)</label><select id="r-camp"></select>
+          <div class="row" style="margin-top:16px"><button class="btn hot" onclick="Reports.open('post')">Generar informe</button></div></div>
+        <div class="card"><h2>Informe de la cuenta</h2><p class="muted">Seguidores reales, crecimiento, formatos que mejor funcionan y publicaciones destacadas.</p>
+          <div class="row" style="margin-top:16px"><button class="btn hot" onclick="Reports.open('cuenta')">Generar informe</button></div></div>
+        <div class="card"><h2>Informe de campaña de correo</h2><p class="muted">Entregas, aperturas, clics al botón y bajas, con lectura ejecutiva.</p>
+          <label>Campaña</label><select id="r-camp2"></select>
+          <div class="row" style="margin-top:16px"><button class="btn hot" onclick="Reports.open('correo')">Generar informe</button></div></div>
+      </div>
+      <div class="card"><h2>Informe integral de impacto</h2><p class="muted">Todo en un solo documento: correo + publicación + cuenta. Ideal para presentar a la alcaldía, patrocinadores y organizadores.</p>
+        <div class="row" style="margin-top:12px"><button class="btn" onclick="Reports.open('integral')">Generar informe integral</button></div></div>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="view" id="v-ajustes">
+      <div class="top"><div><h1>Ajustes</h1><p>Estado de las conexiones. Los datos sensibles se configuran en el archivo <code>.env</code> del servidor.</p></div></div>
+      <div class="grid g2">
+        <div class="card"><h2>Conexiones</h2><div id="status"></div></div>
+        <div class="card"><h2>Conectar Instagram</h2>
+          <ol class="list-steps">
+            <li>La cuenta debe ser <b>Profesional</b> (Empresa o Creador).</li>
+            <li>Crea una app en <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> con el producto “Instagram”.</li>
+            <li>Genera un token con los permisos <code>instagram_basic</code>, <code>instagram_manage_insights</code> y <code>pages_read_engagement</code>.</li>
+            <li>Copia el token y el ID de la cuenta en <code>IG_ACCESS_TOKEN</code> e <code>IG_USER_ID</code>, y reinicia el servidor.</li>
+          </ol>
+          <p class="muted small">Solo usamos la API oficial de Instagram: sin extraer datos de la página, sin riesgo de bloqueo para la cuenta.</p></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>

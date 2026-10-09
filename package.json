@@ -1,0 +1,28 @@
+{
+  "name": "bioanaliticas",
+  "version": "1.0.0",
+  "description": "Panel de campañas de correo e Instagram con informes ejecutivos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/biocolombiaplus-max/Bioanaliticas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/biocolombiaplus-max/Bioanaliticas/issues"
+  },
+  "homepage": "https://github.com/biocolombiaplus-max/Bioanaliticas#readme",
+  "dependencies": {
+    "dotenv": "^18.0.6",
+    "express": "^5.2.1",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.16"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "private": true
+}

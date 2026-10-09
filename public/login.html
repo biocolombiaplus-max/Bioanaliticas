@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ingreso · Bioanalíticas</title>
+<link rel="icon" href="/img/logo_sm.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#2a2672;--ink:#1f1d3d;--muted:#8a88a3;--line:#e7e5f3}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;font-family:Poppins,system-ui,sans-serif;background:radial-gradient(1200px 600px at 10% -10%,#4a43b0 0,transparent 60%),radial-gradient(900px 500px at 110% 110%,#9a5bd0 0,transparent 55%),#2a2672;color:var(--ink)}
+  .c{width:100%;max-width:400px;background:#fff;border-radius:22px;padding:34px 30px;box-shadow:0 30px 80px rgba(0,0,0,.35);text-align:center}
+  img{width:150px;margin-bottom:6px}
+  h1{font-family:Fraunces,Georgia,serif;font-size:26px;margin:4px 0 2px;color:var(--navy)}
+  p{color:var(--muted);margin:0 0 20px;font-size:14px}
+  label{display:block;text-align:left;font-size:13px;font-weight:500;margin:12px 0 6px}
+  input{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:12px}
+  input:focus{outline:2px solid #cfcaf5;border-color:#4a43b0}
+  button{margin-top:20px;width:100%;font:inherit;font-weight:600;background:var(--navy);color:#fff;border:0;border-radius:999px;padding:13px;cursor:pointer}
+  button:hover{background:#3b3592}
+  .e{background:#fdecea;color:#c0392b;border-radius:10px;padding:8px;font-size:13px;margin-bottom:8px;display:none}
+  .stripe{height:4px;border-radius:4px;background:linear-gradient(90deg,#5cc6e2,#6ab43e,#f26b21,#ffd400);margin:22px auto 0;width:60%}
+</style>
+</head>
+<body>
+<form class="c" method="post" action="/login">
+  <img src="/img/logo.png" alt="Ferias y Fiestas de la Uva 2026">
+  <h1>Bioanalíticas</h1>
+  <p>Panel de control de campañas e Instagram</p>
+  <div class="e" id="e"></div>
+  <label for="u">Usuario</label>
+  <input id="u" name="usuario" autocomplete="username" required autofocus>
+  <label for="p">Clave</label>
+  <input id="p" name="clave" type="password" autocomplete="current-password" required>
+  <button type="submit">Entrar</button>
+  <div class="stripe"></div>
+</form>
+<script>
+  const e = new URLSearchParams(location.search).get('e');
+  if (e) { const b = document.getElementById('e'); b.style.display = 'block'; b.textContent = e === 'bloqueo' ? 'Demasiados intentos. Espera 15 minutos.' : 'Usuario o clave incorrectos.'; }
+</script>
+</body>
+</html>
