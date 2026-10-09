@@ -65,7 +65,7 @@ async function guardar({ usuario, nombre, rol, clave, activo = true }, autor) {
   if (!ROLES[rol]) throw new Error('Rol no válido.');
   const prev = await usuarios.get(u);
   if (!prev && !clave) throw new Error('Escribe una clave para el usuario nuevo.');
-  if (clave && String(clave).length < 6) throw new Error('La clave debe tener al menos 6 caracteres.');
+  if (clave && String(clave).length < 5) throw new Error('La clave debe tener al menos 5 caracteres.');
   const rec = { ...(prev || { creado: new Date().toISOString(), creadoPor: autor }), usuario: u, nombre: String(nombre || u).slice(0, 80), rol, activo: Boolean(activo) };
   if (clave) { rec.salt = crypto.randomBytes(16).toString('hex'); rec.hash = hashOf(clave, rec.salt); }
   await usuarios.put(u, rec);

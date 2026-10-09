@@ -923,7 +923,7 @@ const Ajustes = {
       <form onsubmit="return Ajustes.guardarUsuario(event)">
         <label>Nombre de la persona</label><input type="text" name="nombre" required value="${esc(x.nombre || '')}" placeholder="Ej.: Carolina (diseño)">
         <label>Usuario para ingresar</label><input type="text" name="usuario" required value="${esc(x.usuario || '')}" ${u ? 'readonly' : ''} placeholder="sin espacios, ej.: carolina.diseno" autocomplete="off">
-        <label>${u ? 'Nueva clave (déjala vacía para no cambiarla)' : 'Clave'}</label><input type="text" name="clave" ${u ? '' : 'required'} minlength="6" autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+        <label>${u ? 'Nueva clave (déjala vacía para no cambiarla)' : 'Clave'}</label><input type="text" name="clave" ${u ? '' : 'required'} minlength="5" autocomplete="new-password" placeholder="Mínimo 5 caracteres">
         <label>Rol</label><select name="rol">${Object.entries(App.estado.roles).map(([k, v]) => `<option value="${k}" ${k === x.rol ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
         <label class="check"><input type="checkbox" name="activo" value="true" ${x.activo !== false ? 'checked' : ''}> Usuario activo</label>
         <div class="row" style="margin-top:16px"><button class="btn hot" type="submit">Guardar</button></div>
