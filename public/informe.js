@@ -21,12 +21,13 @@ const list = (items, cls = '') => `<ul class="f ${cls}">${items.map(i => `<li>${
 const tagNivel = n => `<span class="tag ${n === 'excelente' || n === 'bueno' ? 'ok' : n === 'bajo' ? 'bad' : 'warn'}">${esc(n)}</span>`;
 
 let pageNo = 0;
+let ORG = 'Alcaldía de Villa del Rosario';
 const later = [];
 function page(title, num, lead, body) {
   pageNo++;
-  return `<section class="page"><div class="ph"><img src="/img/logo_sm.png" alt=""><span>Informe ejecutivo · Ferias y Fiestas de la Uva 2026</span></div>
+  return `<section class="page"><div class="ph"><img src="/img/logo_sm.png" alt=""><span>Informe ejecutivo · ${esc(ORG)}</span></div>
   <h2><span class="n">${num}</span>${title}</h2>${lead ? `<p class="lead">${lead}</p>` : ''}${body}
-  <div class="pf"><span>Generado el ${fechaLarga} · Bioanalíticas</span><span>Página ${pageNo + 1}</span></div></section>`;
+  <div class="pf"><span>Generado el ${fechaLarga} · Sala de Prensa Digital</span><span>Página ${pageNo + 1}</span></div></section>`;
 }
 
 function gauge(id, score) {
@@ -46,8 +47,9 @@ async function main() {
   if (q.get('post')) p.set('post', q.get('post'));
   if (q.get('campana')) p.set('campana', q.get('campana'));
   const r = await fetch('/api/informe?' + p);
-  if (r.status === 401) return (location.href = '/login');
+  if (r.status === 401) return (location.href = '/#ingresar');
   const d = await r.json();
+  ORG = d.organizacion || ORG;
   const pub = d.publicacion, camp = d.campana, cta = d.cuenta;
   const showPost = pub && ['post', 'integral'].includes(tipo);
   const showMail = camp && ['correo', 'integral', 'post'].includes(tipo);
@@ -59,14 +61,15 @@ async function main() {
   const subt = showPost ? esc(pub.etiqueta || (pub.media && pub.media.caption || '').slice(0, 90)) : showMail ? esc(camp.nombre) : cta ? '@' + esc(cta.account.username) : '';
   let html = `<section class="page cover"><div class="in"><img src="/img/logo.png" alt="Ferias y Fiestas de la Uva 2026">
     <div class="kicker">Informe ejecutivo</div><h1>${titulos[tipo] || titulos.integral}</h1><div class="sub">${subt}</div>
-    <div class="meta"><div>Fecha<b>${fechaLarga}</b></div><div>Evento<b>Ferias y Fiestas de la Uva · Villa del Rosario</b></div><div>Preparado por<b>Bioanalíticas</b></div></div></div><div class="bandas"></div></section>`;
+    <div class="meta"><div>Fecha<b>${fechaLarga}</b></div><div>Entidad<b>${esc(ORG)}</b></div><div>Preparado por<b>Oficina de prensa · Sala de Prensa Digital</b></div></div></div><div class="bandas"></div></section>`;
 
   // ---------- 1. Resumen ejecutivo ----------
   const score = showPost ? pub.analisis.score : showAcc && cta.analisis.top.length ? Math.round(cta.analisis.posts.reduce((s, x) => s + x.analisis.score, 0) / cta.analisis.posts.length) : null;
   const kp = [];
-  if (showPost) { const x = pub.analisis.kpis; kp.push(k('Alcance de la publicación', nf(x.alcance), 'Cuentas únicas', C.violet), k('Interacciones', nf(x.interacciones), `${x.engagementAlcance}% del alcance`, C.orange)); }
+  if (showPost && pub.fuente === 'publica') { const x = pub.analisis.kpis; kp.push(k('Me gusta', nf(x.meGusta), x.vsPromedioMeGusta ? `${x.vsPromedioMeGusta}× el promedio de la cuenta` : '', C.violet), k('Interacción', x.engagementSeguidores + '%', 'Sobre los seguidores de @' + esc(pub.cuenta.username), C.orange)); }
+  else if (showPost) { const x = pub.analisis.kpis; kp.push(k('Alcance de la publicación', nf(x.alcance), 'Cuentas únicas', C.violet), k('Interacciones', nf(x.interacciones), `${x.engagementAlcance}% del alcance`, C.orange)); }
   if (showMail) { const s = camp.stats; kp.push(k('Correos enviados', nf(s.enviados), `${s.tasaEntrega}% entregados`, C.blue), k('Clics al botón', nf(s.clics), `${s.tasaClic}% de los enviados`, C.orange)); }
-  if (cta && (showAcc || showPost)) { const t = cta.insights.totales; kp.push(k('Seguidores', nf(cta.account.followers_count), `${cta.analisis.netos >= 0 ? '+' : ''}${nf(cta.analisis.netos)} netos en 28 días`, C.grape), k('Alcance de la cuenta', nf(t.reach), 'Últimos 28 días', C.green)); }
+  if (cta && (showAcc || (showPost && pub.fuente !== 'publica'))) { const t = cta.insights.totales; kp.push(k('Seguidores', nf(cta.account.followers_count), `${cta.analisis.netos >= 0 ? '+' : ''}${nf(cta.analisis.netos)} netos en 28 días`, C.grape), k('Alcance de la cuenta', nf(t.reach), 'Últimos 28 días', C.green)); }
   const destacados = [
     ...(showPost ? pub.analisis.hallazgos.slice(0, 3) : []),
     ...(showMail ? camp.analisis.hallazgos.slice(1, 3) : []),
@@ -79,7 +82,18 @@ async function main() {
 
   // ---------- 2. Publicación ----------
   let n = 1;
-  if (showPost) {
+  if (showPost && pub.fuente === 'publica') {
+    const a = pub.analisis, x = a.kpis, m = pub.media || {};
+    const serie = (pub.referencia && pub.referencia.serie) || [];
+    html += page('Análisis de la publicación', String(++n).padStart(2, '0'), `@${esc(pub.cuenta.username)} · ${esc((m.caption || '').slice(0, 130))}<br><span style="font-size:11px">Publicada el ${m.timestamp ? new Date(m.timestamp).toLocaleDateString('es-CO', { dateStyle: 'long' }) : '—'} · <a href="${esc(pub.url)}">${esc(pub.url)}</a></span>`, `
+      <div class="grid g4">
+        ${k('Me gusta', nf(x.meGusta), x.vsPromedioMeGusta ? `${x.vsPromedioMeGusta}× el promedio` : '', C.grape)}${k('Comentarios', nf(x.comentarios), x.vsPromedioComentarios ? `${x.vsPromedioComentarios}× el promedio` : '', C.violet)}
+        ${k('Tasa de interacción', x.engagementSeguidores + '%', 'Sobre los seguidores', C.orange)}${k('Seguidores de la cuenta', nf(x.seguidores), '@' + esc(pub.cuenta.username), C.blue)}
+      </div>
+      <div class="box" style="margin-top:12px"><h3 style="margin-top:0">Me gusta frente a sus publicaciones recientes <span style="font-weight:400;color:var(--muted)">(<span style="color:${C.orange}">■</span> esta publicación)</span></h3><div class="chart sm"><canvas id="c-pub"></canvas></div></div>
+      <h3>Lectura del analista</h3>${list(a.hallazgos)}`);
+    later.push(() => new Chart(document.getElementById('c-pub'), { type: 'bar', data: { labels: serie.map(e => new Date(e.t).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })), datasets: [{ data: serie.map(e => e.likes), backgroundColor: serie.map(e => e.actual ? C.orange : '#cfcde0'), borderRadius: 3, maxBarThickness: 18 }] }, options: { plugins: { legend: { display: false } }, scales: axes() } }));
+  } else if (showPost) {
     const a = pub.analisis, x = a.kpis, m = pub.media || {}, s = a.sentimiento;
     html += page('Análisis de la publicación', String(++n).padStart(2, '0'), `${esc((m.caption || '').slice(0, 140))}<br><span style="font-size:11px">Publicada el ${m.timestamp ? new Date(m.timestamp).toLocaleDateString('es-CO', { dateStyle: 'long' }) : '—'} · <a href="${esc(pub.url)}">${esc(pub.url)}</a></span>`, `
       <div class="grid g4">
@@ -103,11 +117,21 @@ async function main() {
     });
   }
 
+  // ---------- Lectura con IA ----------
+  if (showPost && pub.ia) {
+    const r = pub.ia;
+    html += page('Lectura ejecutiva', String(++n).padStart(2, '0'), 'Análisis elaborado con inteligencia artificial a partir de las cifras de este informe y revisado por la oficina de prensa.', `
+      <div class="hero" style="grid-template-columns:1fr"><div><p class="verdict">${esc(r.titular)}</p><p style="margin:0;color:var(--ink2)">${esc(r.resumen_ejecutivo)}</p></div></div>
+      <h3>Hallazgos</h3>${list(r.hallazgos)}
+      <h3>Acciones para las próximas 72 horas</h3>${list(r.recomendaciones, 'r')}
+      ${r.alertas && r.alertas.length ? `<h3>Alertas</h3>${list(r.alertas)}` : ''}`);
+  }
+
   // ---------- 3. Correo ----------
   if (showMail) {
     const s = camp.stats, a = camp.analisis;
     const max = Math.max(s.enviados, 1);
-    const act = await fetch(`/api/campanas/${camp.id}/actividad`).then(r => r.json()).catch(() => []);
+    const act = camp.actividad || [];
     html += page('Campaña de correo', String(++n).padStart(2, '0'), `“${esc(camp.asunto.replace(/\{\{\s*nombre\s*\}\}/gi, '[nombre]'))}” · Botón hacia la programación oficial.`, `
       <div class="grid g4">
         ${k('Enviados', nf(s.enviados), `${s.tasaEntrega}% entregados`, C.violet)}${k('Abrieron', nf(s.abiertos), `${s.tasaApertura}% · nivel ${a.nivelApertura || '—'}`, C.blue)}
@@ -169,7 +193,7 @@ async function main() {
       <dt>Clic en el botón</dt><dd>Personas que abrieron la programación desde el correo. Es la medida más confiable del interés generado por la campaña.</dd>
       <dt>Puntaje de impacto</dt><dd>Indicador de 0 a 100 que combina interacción (35%), compartidos (20%), guardados (15%), alcance frente a seguidores (20%) y tono de comentarios (10%).</dd>
     </dl>
-    <p style="font-size:10px;color:var(--muted);margin-top:14px">Fuentes: API oficial de Instagram (Meta) y registro de envíos de Bioanalíticas. Las cifras corresponden al momento de generación del informe.</p>`);
+    <p style="font-size:10px;color:var(--muted);margin-top:14px">Fuentes: API oficial de Instagram (Meta) y registro de envíos de la Sala de Prensa Digital. Las cifras corresponden al momento de generación del informe.</p>`);
 
   document.getElementById('doc').innerHTML = html;
   if (window.Chart) later.forEach(f => { try { f(); } catch (e) { console.error(e); } });

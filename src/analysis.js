@@ -33,7 +33,42 @@ function sentiment(comments = []) {
   return r;
 }
 
+// Publicación de otra cuenta: solo hay datos públicos (me gusta, comentarios, seguidores).
+function analyzePublicPost(post) {
+  const m = post.media || {};
+  const ref = post.referencia || {};
+  const followers = (post.cuenta && post.cuenta.followers_count) || 0;
+  const likes = m.like_count || 0, comments = m.comments_count || 0, inter = likes + comments;
+  const vsLikes = ref.promedioMeGusta ? +(likes / ref.promedioMeGusta).toFixed(2) : 0;
+  const vsCom = ref.promedioComentarios ? +(comments / ref.promedioComentarios).toFixed(2) : 0;
+  const k = {
+    meGusta: likes, comentarios: comments, interacciones: inter, seguidores: followers,
+    engagementSeguidores: pct(inter, followers), vsPromedioMeGusta: vsLikes, vsPromedioComentarios: vsCom,
+    promedioMeGusta: ref.promedioMeGusta || 0, promedioComentarios: ref.promedioComentarios || 0,
+    conversacion: pct(comments, likes),
+  };
+  const cap = (v, max) => Math.min(1, v / max);
+  const score = Math.round(100 * (0.45 * cap(k.engagementSeguidores, 6) + 0.35 * cap(vsLikes, 2) + 0.20 * cap(k.conversacion, 8)));
+  const nEng = k.engagementSeguidores >= 6 ? 'excelente' : k.engagementSeguidores >= 3 ? 'bueno' : k.engagementSeguidores >= 1 ? 'medio' : 'bajo';
+  const cuenta = post.cuenta ? '@' + post.cuenta.username : 'la cuenta';
+  const hallazgos = [
+    `La publicación suma ${fmt(likes)} me gusta y ${fmt(comments)} comentarios. Frente a los ${fmt(followers)} seguidores de ${cuenta}, la tasa de interacción es ${k.engagementSeguidores}% (nivel ${nEng}; referencia del sector: 1% a 3%).`,
+  ];
+  if (vsLikes) hallazgos.push(vsLikes >= 1
+    ? `Rinde ${vsLikes} veces el promedio de me gusta de las últimas ${ref.publicaciones} publicaciones de ${cuenta}: es contenido por encima de lo habitual.`
+    : `Está en el ${Math.round(vsLikes * 100)}% del promedio de me gusta de las últimas ${ref.publicaciones} publicaciones de ${cuenta}.`);
+  if (vsCom) hallazgos.push(`Genera ${vsCom} veces los comentarios habituales de la cuenta: ${vsCom >= 1 ? 'despierta más conversación que el promedio' : 'conversa menos que el promedio'}.`);
+  hallazgos.push('Alcance, vistas, guardados y compartidos solo los entrega Instagram al dueño de la cuenta; este análisis usa los datos públicos oficiales.');
+  const recomendaciones = [
+    'Si es una cuenta aliada, pídele compartir el informe interno de la publicación (alcance y guardados) para un análisis completo.',
+    vsLikes >= 1 ? 'Replicar el formato y el enfoque de esta publicación en la cuenta oficial: ya demostró que conecta con el público de la región.' : 'Tomar como referencia las publicaciones de mejor desempeño de la cuenta antes de replicar este formato.',
+    'Proponer una colaboración (publicación conjunta) para sumar las comunidades de ambas cuentas.',
+  ];
+  return { kpis: k, sentimiento: sentiment([]), score, nivel: nEng, hallazgos, recomendaciones, publica: true };
+}
+
 function analyzePost(post, followers = 0) {
+  if (post.fuente === 'publica') return analyzePublicPost(post);
   const i = post.insights || {};
   const m = post.media || {};
   const likes = i.likes ?? m.like_count ?? 0;
@@ -82,6 +117,11 @@ function analyzePost(post, followers = 0) {
   if (k.compartidos) hallazgos.push(`${fmt(k.compartidos)} personas la compartieron (${k.tasaCompartido}% del alcance). Compartir es la señal más fuerte de intención de asistir y de recomendación.`);
   if (k.guardados) hallazgos.push(`${fmt(k.guardados)} personas la guardaron para consultarla después: la programación se está usando como agenda de referencia.`);
   if (k.nuevosSeguidores) hallazgos.push(`La publicación trajo ${fmt(k.nuevosSeguidores)} seguidores nuevos y ${fmt(k.visitasPerfil)} visitas al perfil.`);
+  const ref = post.referencia || {};
+  if (ref.promedioMeGusta) {
+    k.vsPromedioMeGusta = +(likes / ref.promedioMeGusta).toFixed(2);
+    hallazgos.push(`Obtuvo ${k.vsPromedioMeGusta} veces el promedio de me gusta de las últimas ${ref.publicaciones} publicaciones de la cuenta.`);
+  }
   if (s.total) hallazgos.push(`De ${s.total} comentarios analizados, ${s.positivos} son positivos, ${s.negativos} negativos y ${s.preguntas} son preguntas del público (índice de sentimiento ${s.indice > 0 ? '+' : ''}${s.indice}).`);
 
   if (nEng === 'bajo' || nEng === 'medio') recomendaciones.push('Reforzar el mensaje con video corto (reel) de 15 a 30 segundos mostrando el ambiente de la feria; los reels suelen duplicar el alcance de una imagen fija.');

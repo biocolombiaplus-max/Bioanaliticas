@@ -20,20 +20,20 @@ function personalize(text, nombre) {
 
 const DEFAULTS = {
   nombre: 'Feria de la Uva 2026 · Invitación',
-  asunto: '{{nombre}}, este fin de semana Villa del Rosario huele a uva 🍇',
-  preheader: 'Música, sabores y alegría en las Ferias y Fiestas de la Uva 2026. Mira aquí toda la programación.',
-  titular: '¡Este fin de semana nos vemos en la Feria de la Uva!',
+  asunto: '{{nombre}}, este fin de semana te esperamos en la Feria de la Uva 🍇',
+  preheader: 'Villa del Rosario abre sus puertas a todo el área metropolitana. Mira aquí la programación completa.',
+  titular: '¡Este fin de semana, todo el área metropolitana se encuentra en Villa del Rosario!',
   mensaje:
 `Hola {{nombre}},
 
-Llegó el momento que todo Villa del Rosario estaba esperando: las Ferias y Fiestas de la Uva 2026 ya están aquí.
+Llegaron las Ferias y Fiestas de la Uva 2026 y la invitación es para todos: vecinos de Villa del Rosario, Cúcuta, Los Patios, El Zulia, San Cayetano, Puerto Santander y todos los municipios del área metropolitana.
 
-Música, sabores de nuestra tierra, planes para toda la familia y ese ambiente bonito que solo se vive en la feria. Este fin de semana el plan es uno solo: salir, encontrarnos y celebrar lo nuestro.
+Música, sabores de nuestra tierra, planes para toda la familia y ese ambiente bonito que solo se vive en la feria. Estamos a un paso de ti: este fin de semana el plan es uno solo, venir, encontrarnos y celebrar juntos.
 
 Ya publicamos la programación completa con horarios, artistas y lugares. Dale un vistazo, arma tu plan y no te pierdas nada.`,
   botonTexto: 'Ver la programación 🍇',
   botonUrl: 'https://www.instagram.com/p/DePMxe_J8L0/',
-  cierre: '¡Trae a tu familia y a tus amigos! Nos vemos en la feria.',
+  cierre: '¡Trae a tu familia y a tus amigos! Villa del Rosario te espera con los brazos abiertos.',
 };
 
 function render(campaign, { nombre = '', openUrl, clickUrl, unsubUrl, baseUrl, org }) {
@@ -67,6 +67,7 @@ function render(campaign, { nombre = '', openUrl, clickUrl, unsubUrl, baseUrl, o
     <tr><td align="center" style="padding:30px 24px 6px;">
       <img src="${logo}" width="230" alt="Ferias y Fiestas de la Uva · Villa del Rosario 2026" style="display:block;width:230px;max-width:70%;height:auto;border:0;">
     </td></tr>
+    ${campaign.imagenUrl ? `<tr><td style="padding:14px 24px 0;"><img src="${esc(campaign.imagenUrl)}" width="552" alt="${esc(campaign.imagenAlt || titular)}" style="display:block;width:100%;max-width:552px;height:auto;border:0;border-radius:14px;"></td></tr>` : ''}
     <tr><td class="px" style="padding:10px 48px 0;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
       <h1 class="h1" style="margin:12px 0 18px;font-size:30px;line-height:36px;color:#2a2672;font-weight:800;text-align:center;letter-spacing:-.3px;">${esc(titular)}</h1>
       ${parrafos.map(p => `<p style="margin:0 0 16px;font-size:16px;line-height:26px;color:#3b3a4f;">${esc(p).replace(/\n/g, '<br>')}</p>`).join('\n      ')}

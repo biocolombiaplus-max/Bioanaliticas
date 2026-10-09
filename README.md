@@ -1,66 +1,91 @@
-# Bioanalíticas · Panel de campañas e Instagram
+# Sala de Prensa Digital · Villa del Rosario
 
-Panel de control para la **Feria de la Uva · Villa del Rosario 2026**:
+Herramienta de gestión para la oficina de prensa. Empieza con las **Ferias y Fiestas de la Uva 2026** y sirve para cualquier campaña posterior.
 
-- **Campañas de correo** personalizadas con el nombre de cada persona, enviadas **una cada 10 segundos** y con botón directo a la programación.
-- **Seguimiento**: correos enviados, aperturas, **clics en el botón**, rebotes y bajas, en tiempo real.
-- **Base de datos**: importación de CSV con limpieza automática (duplicados, correos inválidos, sin autorización) y respeto permanente de las bajas.
-- **Instagram**: Ligia pega el enlace de cualquier publicación y obtiene alcance, vistas, me gusta, comentarios, compartidos, guardados, seguidores nuevos y el tono de los comentarios.
-- **Cuenta completa**: seguidores reales, crecimiento neto (nuevos menos los que dejaron de seguir), reels frente a publicaciones y ranking por puntaje de impacto.
-- **Informes ejecutivos en PDF**: por publicación, por cuenta, por campaña o un informe integral, con lectura del analista y recomendaciones.
+| Módulo | Qué hace |
+|---|---|
+| **Analizar publicación** | Pegas el enlace de cualquier publicación o reel de Instagram y obtienes el análisis al instante. Si es de la cuenta conectada, trae todas las estadísticas: alcance, vistas, guardados, compartidos, seguidores nuevos y comentarios. Si es de otra cuenta profesional, trae sus datos públicos (me gusta y comentarios) y los compara con el promedio de esa cuenta. Incluye un puntaje de impacto, la lectura del analista y una lectura ejecutiva con IA. |
+| **Informes PDF** | Hay cuatro tipos: publicación, cuenta, campaña de correo e informe integral. Se descargan con un clic. |
+| **Estudio de contenidos (IA)** | Subes una imagen y escribes el tema. Recibes textos para Instagram, Facebook, X y WhatsApp, una nota de prensa, el SEO local (título, meta descripción, slug, palabras clave y texto alternativo) y el correo listo. Con el botón **Crear correo con esto** se arma la campaña. |
+| **Campañas de correo** | Saludo con el nombre de cada persona, un correo cada 10 segundos, baja en un clic y medición de aperturas, clics y bajas. |
+| **Base de datos** | Importación de CSV con validación de la autorización, sin duplicados, con distribución por municipio y respetando las bajas. |
+| **Cuenta de Instagram** | Seguidores reales, crecimiento neto, reels frente a publicaciones y ranking por puntaje de impacto. |
 
-## Puesta en marcha
+---
+
+## Publicar en Vercel (paso a paso)
+
+1. Crea una cuenta en [vercel.com](https://vercel.com) con tu cuenta de GitHub.
+2. Ve a **Add New → Project** e importa el repositorio `Bioanaliticas`. Deja la configuración tal como la propone (el archivo `vercel.json` ya trae todo) y pulsa **Deploy**.
+3. En el proyecto, entra a **Storage** y conecta:
+   - **Upstash for Redis** (plan gratuito): es la base de datos. Crea solas `KV_REST_API_URL` y `KV_REST_API_TOKEN`.
+   - **Blob**: guarda las imágenes que se suben. Crea sola `BLOB_READ_WRITE_TOKEN`.
+4. En **Settings → Environment Variables**, agrega como mínimo:
+   - `ADMIN_USERS`, por ejemplo `ligia:UnaClaveSegura`
+   - `SESSION_SECRET`: cualquier texto largo y aleatorio
+   - `BASE_URL`: la dirección del proyecto, por ejemplo `https://sala-prensa.vercel.app`
+   - `ANTHROPIC_API_KEY`: se crea en [console.anthropic.com](https://console.anthropic.com)
+   - Los datos de SMTP e Instagram (ver más abajo)
+5. Vuelve a desplegar el proyecto (**Deployments → Redeploy**) para que tome las variables.
+6. Abre la dirección, ingresa con tu usuario y revisa **Ajustes**: ahí se ve qué está conectado y qué falta.
+
+El listado completo de variables está en `.env.example`.
+
+### Envío de correos en Vercel
+
+Vercel no deja programas corriendo de forma permanente, así que la cola de envío avanza por tandas:
+
+- **Con el panel abierto**, el propio panel mantiene el envío en marcha, a un correo cada 10 segundos.
+- **Para que siga con el panel cerrado**, define `CRON_SECRET` y crea en [cron-job.org](https://cron-job.org) (gratis) una tarea que llame cada minuto a:
+  `https://TU-DOMINIO/api/cron/cola?clave=TU_CRON_SECRET`
+
+Una vez al día, Vercel actualiza solo los datos de Instagram (`/api/cron/diario`).
+
+### Correo: llegar a la bandeja principal
+
+1. Usa un proveedor profesional, por ejemplo **Brevo** (`smtp-relay.brevo.com:587`), Amazon SES o Mailgun.
+2. Envía desde un **dominio propio** con **SPF, DKIM y DMARC** configurados.
+3. Si el dominio es nuevo, usa `DAILY_LIMIT` para subir el volumen poco a poco.
+4. Cada correo lleva versión de texto, remitente identificado, enlace de baja visible y baja en un clic (`List-Unsubscribe`).
+5. Envía siempre una prueba antes de lanzar.
+
+Solo se escribe a personas que autorizaron recibir comunicaciones (Ley 1581 de 2012).
+
+### Conectar Instagram (API oficial)
+
+1. La cuenta debe ser **Profesional** (Empresa o Creador) y estar vinculada a una página de Facebook.
+2. Crea una app en [developers.facebook.com](https://developers.facebook.com/apps) con el producto Instagram.
+3. Genera un token de larga duración con los permisos `instagram_basic`, `instagram_manage_insights`, `pages_show_list` y `pages_read_engagement`.
+4. Guarda el token en `IG_ACCESS_TOKEN` y el ID de la cuenta de Instagram en `IG_USER_ID`.
+
+Para analizar publicaciones de **otras cuentas** se usa la función oficial *Business Discovery*: la otra cuenta debe ser profesional y pública. Si el sistema no reconoce al autor, escribe su @usuario en el campo opcional. Instagram solo entrega alcance, guardados y comentarios a la cuenta dueña de la publicación.
+
+Sin token, la herramienta funciona en **modo demostración**, con datos de ejemplo claramente marcados.
+
+---
+
+## Desarrollo local
 
 ```bash
 npm install
-cp .env.example .env     # completa los datos
-npm start                # http://localhost:3000
+cp .env.example .env
+npm start        # http://localhost:3000
 ```
 
-Ingresa con `ADMIN_USER` / `ADMIN_PASSWORD` (por defecto el usuario es `ligia`; **cambia la clave**).
-
-Sin SMTP configurado, el sistema funciona en **modo prueba**: genera los correos y los guarda en `data/outbox/*.eml`.
-Sin Instagram conectado, muestra **datos de demostración** claramente marcados.
-
-## Publicarlo en internet
-
-Para que el logo, las aperturas y los clics funcionen en los correos reales, el panel debe estar en una dirección pública
-(Render, Railway, un VPS, etc.) y `BASE_URL` debe ser esa dirección (por ejemplo `https://panel.tudominio.com`).
-La carpeta `data/` guarda la información: usa un disco persistente.
-
-## Correo: llegar a la bandeja principal
-
-1. Usa un proveedor profesional (recomendado: **Brevo**, `smtp-relay.brevo.com:587`; también Amazon SES, Mailgun o SendGrid).
-   Gmail personal solo permite unos 500 correos al día y no es apto para campañas.
-2. Envía desde un **dominio propio** y configura **SPF, DKIM y DMARC** con las instrucciones de tu proveedor.
-3. Si el dominio es nuevo, usa `DAILY_LIMIT` (por ejemplo 200 el primer día y luego más) para calentar la reputación.
-4. Cada correo incluye versión de texto, remitente identificado, enlace de baja visible y baja en un clic
-   (`List-Unsubscribe`), como exigen Gmail y Yahoo desde 2024.
-5. Envía siempre una **prueba** a Gmail y Outlook antes de lanzar.
-
-Todas las personas de la base deben haber autorizado recibir comunicaciones (Ley 1581 de 2012). Si el CSV tiene una columna
-`autorizacion`, las filas con "No" se descartan automáticamente.
-
-## Conectar Instagram (API oficial)
-
-1. La cuenta debe ser **Profesional** (Empresa o Creador) y estar vinculada a una página de Facebook.
-2. En [developers.facebook.com](https://developers.facebook.com/apps) crea una app y agrega el producto Instagram.
-3. Genera un token de larga duración con `instagram_basic`, `instagram_manage_insights`, `pages_show_list` y `pages_read_engagement`.
-4. Coloca el token en `IG_ACCESS_TOKEN` y el ID de la cuenta de Instagram en `IG_USER_ID`. Reinicia.
-
-Si usas el inicio de sesión con Instagram (sin página de Facebook), define `IG_API_HOST=graph.instagram.com`.
-
-El panel registra los seguidores cada hora y actualiza las publicaciones monitoreadas cada 3 horas, así se ve la evolución real.
-La API solo entrega estadísticas de publicaciones de la cuenta conectada.
+Sin Redis, los datos se guardan en `data/`. Sin SMTP, los correos se generan pero no salen.
 
 ## Estructura
 
 ```
-server.js              Servidor y API
-src/mailer.js          Cola de envío, ritmo, límites y estadísticas
-src/emailTemplate.js   Plantilla del correo (HTML + texto)
-src/instagram.js       API de Instagram y modo demostración
-src/analysis.js        Indicadores, hallazgos y recomendaciones
-src/csv.js             Lectura de bases de datos
-public/                Panel, inicio de sesión e informe imprimible
+api/index.js           Entrada en Vercel
+local.js               Servidor local
+src/servidor.js        Rutas y API
+src/store.js           Base de datos (Upstash Redis o archivo local)
+src/mailer.js          Cola de envío, ritmo, seguimiento y estadísticas
+src/emailTemplate.js   Plantilla del correo
+src/instagram.js       API de Instagram, Business Discovery y modo demostración
+src/analysis.js        Indicadores, puntaje, hallazgos y recomendaciones
+src/ia.js              Estudio de contenidos y lectura ejecutiva con Claude
+src/uploads.js         Imágenes (Vercel Blob)
+public/                Página de inicio, panel e informe imprimible
 ```

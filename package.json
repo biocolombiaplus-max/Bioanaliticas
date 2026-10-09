@@ -1,11 +1,11 @@
 {
   "name": "bioanaliticas",
   "version": "1.0.0",
-  "description": "Panel de campañas de correo e Instagram con informes ejecutivos",
-  "main": "server.js",
+  "description": "Sala de Prensa Digital: análisis de publicaciones, informes ejecutivos, contenidos con IA y campañas de correo",
+  "main": "local.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node local.js",
+    "dev": "node --watch local.js"
   },
   "repository": {
     "type": "git",
@@ -16,13 +16,16 @@
   },
   "homepage": "https://github.com/biocolombiaplus-max/Bioanaliticas#readme",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1",
+    "@upstash/redis": "^1.39.0",
+    "@vercel/blob": "^2.8.1",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "multer": "^2.4.0",
     "nodemailer": "^10.0.16"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "private": true
 }
