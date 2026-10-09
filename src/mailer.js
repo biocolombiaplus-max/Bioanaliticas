@@ -4,6 +4,7 @@
 const nodemailer = require('nodemailer');
 const { kv, col, id } = require('./store');
 const { render } = require('./emailTemplate');
+const remitentes = require('./remitentes');
 
 const campaigns = col('campaigns');
 const contacts = col('contacts');
@@ -21,25 +22,19 @@ const cfg = () => ({
 
 const smtpConfigured = () => Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS && process.env.FROM_EMAIL);
 
-let transport = null;
-function getTransport() {
-  if (transport) return transport;
-  if (smtpConfigured()) {
-    const port = Number(process.env.SMTP_PORT || 587);
-    transport = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port,
-      secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
-  } else {
-    // Modo prueba: el correo se arma completo pero no sale; se guarda una copia para revisarlo.
-    transport = nodemailer.createTransport({ streamTransport: true, buffer: true });
+// Un transporte SMTP por remitente; sin remitente, modo prueba (el correo se arma pero no sale).
+const transports = new Map();
+function getTransport(sender) {
+  const k = sender ? sender.id + '|' + sender.host + '|' + sender.user : 'prueba';
+  if (!transports.has(k)) {
+    transports.set(k, sender
+      ? nodemailer.createTransport({ host: sender.host, port: sender.port, secure: sender.secure, auth: { user: sender.user, pass: sender.pass } })
+      : nodemailer.createTransport({ streamTransport: true, buffer: true }));
   }
-  return transport;
+  return transports.get(k);
 }
 
-function buildMessage(campaign, { email, nombre, token }) {
+function buildMessage(campaign, { email, nombre, token }, sender = null) {
   const c = cfg();
   const r = render(campaign, {
     nombre,
@@ -47,25 +42,28 @@ function buildMessage(campaign, { email, nombre, token }) {
     org: c.org,
     openUrl: `${c.baseUrl}/t/o/${token}.gif`,
     clickUrl: `${c.baseUrl}/t/c/${token}`,
+    click2Url: `${c.baseUrl}/t/c/${token}?b=2`,
     unsubUrl: `${c.baseUrl}/baja/${token}`,
   });
+  const fromEmail = sender ? sender.email : (c.fromEmail || 'pruebas@localhost');
+  const replyTo = sender ? (sender.replyTo || sender.email) : c.replyTo;
   return {
-    from: { name: campaign.remitenteNombre || c.fromName, address: c.fromEmail || 'pruebas@localhost' },
+    from: { name: campaign.remitenteNombre || (sender && sender.nombre) || c.fromName, address: fromEmail },
     to: nombre ? { name: nombre, address: email } : email,
-    replyTo: c.replyTo || undefined,
+    replyTo: replyTo || undefined,
     subject: r.subject,
     html: r.html,
     text: r.text,
     list: {
-      unsubscribe: [{ url: `${c.baseUrl}/baja/${token}`, comment: 'Darse de baja' }, ...(c.fromEmail ? [`mailto:${c.fromEmail}?subject=baja`] : [])],
+      unsubscribe: [{ url: `${c.baseUrl}/baja/${token}`, comment: 'Darse de baja' }, ...(sender ? [`mailto:${fromEmail}?subject=baja`] : [])],
     },
     headers: { 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
   };
 }
 
-async function deliver(msg, token) {
-  const info = await getTransport().sendMail(msg);
-  if (!smtpConfigured() && info.message) {
+async function deliver(msg, token, sender) {
+  const info = await getTransport(sender).sendMail(msg);
+  if (!sender && info.message) {
     await kv.set('outbox:' + token, info.message.toString('utf8').slice(0, 200000), { ex: 3 * 86400 });
   }
   return info;
@@ -73,11 +71,12 @@ async function deliver(msg, token) {
 
 async function sendTest(campaign, email, nombre = '') {
   const token = 'prueba-' + id(6);
-  const msg = buildMessage(campaign, { email, nombre, token });
+  const sender = await remitentes.obtener(campaign.remitenteId);
+  const msg = buildMessage(campaign, { email, nombre, token }, sender);
   msg.subject = '[PRUEBA] ' + msg.subject;
   await kv.hset('sendidx', { [token]: campaign.id });
-  await deliver(msg, token);
-  return { simulado: !smtpConfigured() };
+  await deliver(msg, token, sender);
+  return { simulado: !sender, remitente: sender ? sender.email : null };
 }
 
 // ---------- Estadísticas (contadores en Redis: rápidos aunque haya miles de envíos) ----------
@@ -121,9 +120,15 @@ async function enqueue(campaign) {
   const already = new Set(existing.map(s => s.email));
   const nuevos = {};
   const idx = {};
-  for (const ct of await contacts.all()) {
+  let lista;
+  if (campaign.destino === 'manual') {
+    // Correos escritos a mano: se respetan igualmente las bajas registradas.
+    const bajas = new Set((await contacts.all()).filter(c => c.baja).map(c => c.email));
+    lista = (campaign.manual || []).filter(c => !bajas.has(c.email)).map(c => ({ ...c, autorizado: true }));
+  } else lista = await contacts.all();
+  for (const ct of lista) {
     if (ct.baja || !ct.autorizado || already.has(ct.email)) continue;
-    if (campaign.segmento && !(ct.listas || []).includes(campaign.segmento)) continue;
+    if (campaign.destino !== 'manual' && campaign.segmento && !(ct.listas || []).includes(campaign.segmento)) continue;
     const token = id();
     nuevos[token] = { id: token, campaignId: campaign.id, email: ct.email, nombre: ct.nombre, estado: 'pendiente', aperturas: 0, clics: 0 };
     idx[token] = campaign.id;
@@ -153,7 +158,10 @@ async function procesarCola({ budgetMs = 50000 } = {}) {
       if (!cid) return { enviados, sinCampana: true };
       const campaign = await campaigns.get(cid);
       if (!campaign || campaign.estado !== 'enviando') { await kv.del('activa'); return { enviados }; }
-      if (c.dailyLimit && Number(await kv.get('dia:' + today()) || 0) >= c.dailyLimit) {
+      const sender = await remitentes.obtener(campaign.remitenteId);
+      const sid = sender ? sender.id : 'prueba';
+      const limite = (sender && sender.limiteDiario) || c.dailyLimit;
+      if (limite && Number(await kv.get(`dia:${sid}:${today()}`) || 0) >= limite) {
         if (campaign.nota !== 'limite') { campaign.nota = 'limite'; await campaigns.put(cid, campaign); }
         return { enviados, limiteDiario: true };
       }
@@ -177,13 +185,14 @@ async function procesarCola({ budgetMs = 50000 } = {}) {
       if (ct && ct.baja) { s.estado = 'omitido'; s.error = 'Se dio de baja'; await sendsOf(cid).put(token, s); await bump(cid, 'omitidos'); continue; }
       await kv.set('ultimoEnvio', String(Date.now()));
       try {
-        const info = await deliver(buildMessage(campaign, { email: s.email, nombre: s.nombre, token }), token);
+        const info = await deliver(buildMessage(campaign, { email: s.email, nombre: s.nombre, token }, sender), token, sender);
         s.estado = 'enviado';
-        s.simulado = !smtpConfigured();
+        s.simulado = !sender;
+        s.remitente = sender ? sender.email : null;
         s.messageId = info.messageId;
         s.enviadoEn = new Date().toISOString();
         await bump(cid, 'enviados', 1, s.enviadoEn);
-        await kv.incr('dia:' + today(), 3 * 86400);
+        await kv.incr(`dia:${sid}:${today()}`, 3 * 86400);
         enviados++;
         if (campaign.nota) { campaign.nota = ''; await campaigns.put(cid, campaign); }
       } catch (e) {
@@ -223,7 +232,7 @@ async function registrarApertura(token) {
   await sendsOf(f.cid).put(token, f.s);
 }
 
-async function registrarClic(token) {
+async function registrarClic(token, boton = 1) {
   const cid = await kv.hget('sendidx', token);
   const camp = cid ? await campaigns.get(cid) : null;
   const f = cid ? await findSend(token) : null;
@@ -235,7 +244,8 @@ async function registrarClic(token) {
     if (!f.s.abiertoEn) { f.s.abiertoEn = now; await bump(cid, 'abiertos', 1, now); } // si hizo clic, lo abrió
     await sendsOf(cid).put(token, f.s);
   }
-  return camp ? camp.botonUrl : null;
+  if (f && f.s && boton === 2) { f.s.clics2 = (f.s.clics2 || 0) + 1; await sendsOf(cid).put(token, f.s); await bump(cid, 'clicsBoton2'); }
+  return camp ? (boton === 2 && camp.boton2Url ? camp.boton2Url : camp.botonUrl) : null;
 }
 
 async function darDeBaja(token) {

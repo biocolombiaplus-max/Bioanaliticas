@@ -7,8 +7,20 @@ const crypto = require('crypto');
 const id = (n = 12) => crypto.randomBytes(n).toString('base64url');
 const parse = v => (v == null ? null : typeof v === 'string' ? JSON.parse(v) : v);
 
-const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Busca las credenciales de Upstash con cualquier prefijo (KV_, STORAGE_, UPSTASH_REDIS_...).
+function credencialesRedis() {
+  const e = process.env;
+  if (e.KV_REST_API_URL && e.KV_REST_API_TOKEN) return [e.KV_REST_API_URL, e.KV_REST_API_TOKEN];
+  if (e.UPSTASH_REDIS_REST_URL && e.UPSTASH_REDIS_REST_TOKEN) return [e.UPSTASH_REDIS_REST_URL, e.UPSTASH_REDIS_REST_TOKEN];
+  for (const k of Object.keys(e)) {
+    const m = k.match(/^(.*)_REST_API_URL$/) || k.match(/^(.*)_REDIS_REST_URL$/);
+    if (!m) continue;
+    const token = e[m[1] + '_REST_API_TOKEN'] || e[m[1] + '_REDIS_REST_TOKEN'];
+    if (token && /^https:\/\//.test(e[k])) return [e[k], token];
+  }
+  return [null, null];
+}
+const [REDIS_URL, REDIS_TOKEN] = credencialesRedis();
 
 function redisBackend() {
   const { Redis } = require('@upstash/redis');

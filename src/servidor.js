@@ -5,14 +5,18 @@ const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const { kv, col } = require('./store');
-const { parseContacts, EMAIL_RE } = require('./csv');
+const { readRows, parseContacts, perfil, parseManual, EMAIL_RE } = require('./csv');
+const usuarios = require('./usuarios');
+const remitentes = require('./remitentes');
+const oficina = require('./oficina');
+const { revisar: revisarAntispam } = require('./antispam');
 const mailer = require('./mailer');
 const ig = require('./instagram');
 const ia = require('./ia');
 const analysis = require('./analysis');
 const uploads = require('./uploads');
 const { mensajePara } = require('./bienvenida');
-const { DEFAULTS, esc } = require('./emailTemplate');
+const { DEFAULTS, TIPOS, PLANTILLAS, esc } = require('./emailTemplate');
 
 const contenidos = col('contenidos');
 const app = express();
@@ -24,16 +28,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 *
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ---------------- Usuarios y sesión ----------------
-function users() {
-  const map = new Map();
-  for (const pair of String(process.env.ADMIN_USERS || '').split(/[,;]/)) {
-    const i = pair.indexOf(':');
-    if (i > 0) map.set(pair.slice(0, i).trim().toLowerCase(), pair.slice(i + 1).trim());
-  }
-  if (process.env.ADMIN_PASSWORD || !map.size) map.set((process.env.ADMIN_USER || 'ligia').toLowerCase(), process.env.ADMIN_PASSWORD || 'cambia-esta-clave');
-  return map;
-}
-const SECRET = () => process.env.SESSION_SECRET || crypto.createHash('sha256').update('bio|' + [...users()].join('|')).digest('hex');
+const SECRET = () => process.env.SESSION_SECRET || crypto.createHash('sha256').update('bio|' + [...usuarios.envUsers()].join('|')).digest('hex');
 const sign = v => v + '.' + crypto.createHmac('sha256', SECRET()).update(v).digest('base64url');
 const verify = s => {
   if (!s) return null;
@@ -56,26 +51,42 @@ function cronOk(req) {
   const given = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.query.clave || '';
   return crypto.timingSafeEqual(hash(given), hash(s));
 }
-function auth(req, res, next) {
+async function auth(req, res, next) {
   const u = sessionUser(req);
-  if (u) { req.user = u; return next(); }
+  const perfil = u ? await usuarios.perfilDe(u).catch(() => null) : null;
+  if (perfil) { req.user = perfil.usuario; req.perfil = perfil; return next(); }
   if (req.originalUrl.startsWith('/api/')) return res.status(401).json({ error: 'Sesión vencida' });
   res.redirect('/');
+}
+
+// Permisos por rol: diseño solo trabaja con piezas y ve el calendario; consulta solo lee.
+const PERMISOS_DISENO = [/^\/api\/(estado|sesion|hoy)$/, /^\/api\/piezas/, /^\/api\/archivos/, /^\/api\/calendario$/, /^\/api\/ia\/revisar-pieza$/];
+function permisos(req, res, next) {
+  const rol = req.perfil.rol;
+  const ruta = req.originalUrl.split('?')[0];
+  if (rol === 'admin') return next();
+  if (rol === 'diseno') {
+    if (!PERMISOS_DISENO.some(r => r.test(ruta))) return res.status(403).json({ error: 'Tu usuario no tiene acceso a esta sección.' });
+    if (/^\/api\/calendario/.test(ruta) && req.method !== 'GET') return res.status(403).json({ error: 'Solo puedes consultar el calendario.' });
+    if (/\/decision$/.test(ruta)) return res.status(403).json({ error: 'La aprobación la hace la jefatura de prensa.' });
+    return next();
+  }
+  if (req.method === 'GET' || /^\/api\/(cola\/procesar)$/.test(ruta)) return next();
+  return res.status(403).json({ error: 'Tu usuario es de solo consulta.' });
 }
 
 app.post('/login', wrap(async (req, res) => {
   const key = 'login:' + (req.ip || 'x');
   if (Number(await kv.get(key) || 0) >= 8) return res.redirect('/?e=bloqueo#ingresar');
-  const user = String(req.body.usuario || '').trim().toLowerCase();
-  const pass = users().get(user);
-  if (!pass || !crypto.timingSafeEqual(hash(req.body.clave || ''), hash(pass))) {
+  const perfil = await usuarios.autenticar(req.body.usuario, req.body.clave || '');
+  if (!perfil) {
     await kv.incr(key, 900);
     return res.redirect('/?e=1#ingresar');
   }
   await kv.del(key);
   const exp = Date.now() + 12 * 3600 * 1000;
   const secure = req.secure ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `sesion=${encodeURIComponent(sign(`${user}|${exp}`))}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${secure}`);
+  res.setHeader('Set-Cookie', `sesion=${encodeURIComponent(sign(`${perfil.usuario}|${exp}`))}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${secure}`);
   res.redirect('/app.html');
 }));
 app.get('/logout', (req, res) => { res.setHeader('Set-Cookie', 'sesion=; Path=/; Max-Age=0'); res.redirect('/'); });
@@ -90,7 +101,7 @@ app.get('/t/o/:file', wrap(async (req, res) => {
 }));
 app.get('/t/c/:token', wrap(async (req, res) => {
   // Solo redirige al enlace guardado en la campaña (nunca a una dirección recibida por URL).
-  const url = await mailer.registrarClic(req.params.token).catch(() => null);
+  const url = await mailer.registrarClic(req.params.token, req.query.b === '2' ? 2 : 1).catch(() => null);
   res.redirect(302, url || DEFAULTS.botonUrl);
 }));
 
@@ -126,14 +137,25 @@ app.use('/uploads', express.static(uploads.LOCAL_DIR, { maxAge: '30d' }));
 app.get('/health', (req, res) => res.json({ ok: true, almacenamiento: kv.kind }));
 
 // ---------------- API protegida ----------------
-app.use('/api', auth);
+app.use('/api', auth, permisos);
 
 app.get('/api/estado', wrap(async (req, res) => {
   const c = mailer.cfg();
   res.json({
     bienvenida: await mensajePara(req.user).catch(() => null),
     usuario: req.user,
-    smtp: mailer.smtpConfigured(),
+    nombre: req.perfil.nombre,
+    rol: req.perfil.rol,
+    roles: usuarios.ROLES,
+    remitentes: req.perfil.rol === 'admin' ? await remitentes.listar() : [],
+    tipos: Object.fromEntries(Object.entries(TIPOS).map(([k, v]) => [k, v.nombre])),
+    plantillas: PLANTILLAS,
+    canales: oficina.CANALES,
+    estadosPieza: oficina.ESTADOS_PIEZA,
+    estadosCal: oficina.ESTADOS_CAL,
+    checklist: oficina.CHECKLIST,
+    blob: uploads.blobConfigured(),
+    smtp: (await remitentes.listar()).length > 0,
     instagram: ig.configured(),
     ia: ia.configured(),
     imagenes: uploads.blobConfigured() || !process.env.VERCEL,
@@ -168,11 +190,22 @@ app.get('/api/contactos', wrap(async (req, res) => {
   });
 }));
 
-app.post('/api/contactos/importar', upload.single('archivo'), wrap(async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Sube un archivo CSV.' });
+const uploadBase = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024 } });
+
+app.post('/api/contactos/analizar', uploadBase.single('archivo'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Sube un archivo de Excel (.xlsx) o CSV.' });
+  try {
+    const rows = await readRows(req.file.buffer, req.file.originalname);
+    const existentes = new Map((await mailer.contacts.all()).map(c => [c.email, c]));
+    res.json({ archivo: req.file.originalname, ...perfil(rows, existentes) });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+
+app.post('/api/contactos/importar', uploadBase.single('archivo'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Sube un archivo de Excel (.xlsx) o CSV.' });
   if (req.body.confirmo !== 'si') return res.status(400).json({ error: 'Debes confirmar que las personas autorizaron recibir correos.' });
   let parsed;
-  try { parsed = parseContacts(req.file.buffer.toString('utf8')); } catch (e) { return res.status(400).json({ error: e.message }); }
+  try { parsed = parseContacts(await readRows(req.file.buffer, req.file.originalname)); } catch (e) { return res.status(400).json({ error: e.message }); }
   const lista = String(req.body.lista || '').trim() || req.file.originalname.replace(/\.[^.]+$/, '');
   const existing = new Map((await mailer.contacts.all()).map(c => [c.email, c]));
   let nuevos = 0, actualizados = 0, duplicadosArchivo = 0, conBaja = 0;
@@ -184,7 +217,7 @@ app.post('/api/contactos/importar', upload.single('archivo'), wrap(async (req, r
     const ex = existing.get(c.email);
     if (ex) {
       if (ex.baja) conBaja++; // la baja se respeta: no se reactiva por volver a importar
-      write[c.email] = { ...ex, nombre: ex.nombre || c.nombre, ciudad: ex.ciudad || c.ciudad, listas: [...new Set([...(ex.listas || []), lista])] };
+      write[c.email] = { ...ex, nombre: ex.nombre || c.nombre, ciudad: ex.ciudad || c.ciudad, organizacion: ex.organizacion || c.organizacion, cargo: ex.cargo || c.cargo, listas: [...new Set([...(ex.listas || []), lista])] };
       actualizados++;
     } else {
       write[c.email] = { ...c, autorizado: true, fuente: req.file.originalname, listas: [lista], creado: new Date().toISOString() };
@@ -198,9 +231,22 @@ app.post('/api/contactos/importar', upload.single('archivo'), wrap(async (req, r
 app.delete('/api/contactos/:email', wrap(async (req, res) => { await mailer.contacts.del(req.params.email); res.json({ ok: true }); }));
 
 // ---- Campañas ----
-const CAMPOS = ['nombre', 'asunto', 'preheader', 'titular', 'mensaje', 'botonTexto', 'botonUrl', 'cierre', 'remitenteNombre', 'segmento', 'imagenUrl', 'imagenAlt'];
+const CAMPOS = ['nombre', 'asunto', 'preheader', 'titular', 'mensaje', 'botonTexto', 'botonUrl', 'boton2Texto', 'boton2Url', 'notaBoton', 'cierre', 'motivo', 'remitenteNombre', 'remitenteId', 'tipo', 'destino', 'segmento', 'imagenUrl', 'imagenAlt', 'logoUrl'];
+// Aplica los campos recibidos a la campaña, incluida la lista de correos escritos a mano.
+function aplicarCampos(c, body) {
+  for (const k of CAMPOS) if (body[k] !== undefined) c[k] = String(body[k]).slice(0, 20000);
+  if (body.manualTexto !== undefined) {
+    const m = parseManual(body.manualTexto);
+    c.manual = m.contactos.slice(0, 5000);
+    c.manualInvalidos = m.invalidos.slice(0, 50);
+  }
+  if (!TIPOS[c.tipo]) c.tipo = 'invitacion';
+  if (c.destino !== 'manual') c.destino = 'base';
+  return c;
+}
 const validUrl = u => { try { return ['http:', 'https:'].includes(new URL(u).protocol); } catch { return false; } };
-const campanaValida = c => validUrl(c.botonUrl) && (!c.imagenUrl || validUrl(c.imagenUrl));
+const urlOpcional = u => !u || validUrl(u) || (u === 'ninguno');
+const campanaValida = c => (!c.botonTexto || validUrl(c.botonUrl)) && urlOpcional(c.boton2Url) && urlOpcional(c.imagenUrl) && urlOpcional(c.logoUrl);
 
 app.get('/api/campanas', wrap(async (req, res) => {
   const list = await mailer.campaigns.all();
@@ -209,9 +255,10 @@ app.get('/api/campanas', wrap(async (req, res) => {
 }));
 
 app.post('/api/campanas', wrap(async (req, res) => {
-  const c = { id: ig.id(8).replace(/^[-_]/, 'c'), estado: 'borrador', creado: new Date().toISOString() };
-  for (const k of CAMPOS) c[k] = String(req.body[k] ?? DEFAULTS[k] ?? '');
-  if (!campanaValida(c)) return res.status(400).json({ error: 'El enlace del botón o de la imagen no es válido.' });
+  const c = { id: ig.id(8).replace(/^[-_]/, 'c'), estado: 'borrador', creado: new Date().toISOString(), creadoPor: req.user };
+  for (const k of CAMPOS) c[k] = String(DEFAULTS[k] ?? '');
+  aplicarCampos(c, req.body);
+  if (!campanaValida(c)) return res.status(400).json({ error: 'Revisa los enlaces: el del botón es obligatorio y todos deben empezar por https://' });
   res.json(await mailer.campaigns.put(c.id, c));
 }));
 
@@ -219,9 +266,8 @@ app.put('/api/campanas/:id', wrap(async (req, res) => {
   const c = await mailer.campaigns.get(req.params.id);
   if (!c) return res.status(404).json({ error: 'No existe' });
   if (!['borrador', 'pausada'].includes(c.estado)) return res.status(400).json({ error: 'Solo se puede editar una campaña en borrador o pausada.' });
-  const next = { ...c };
-  for (const k of CAMPOS) if (req.body[k] !== undefined) next[k] = String(req.body[k]);
-  if (!campanaValida(next)) return res.status(400).json({ error: 'El enlace del botón o de la imagen no es válido.' });
+  const next = aplicarCampos({ ...c }, req.body);
+  if (!campanaValida(next)) return res.status(400).json({ error: 'Revisa los enlaces: el del botón es obligatorio y todos deben empezar por https://' });
   res.json(await mailer.campaigns.put(c.id, next));
 }));
 
@@ -233,11 +279,17 @@ app.delete('/api/campanas/:id', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.post('/api/vista-previa', (req, res) => {
+app.post('/api/vista-previa', wrap(async (req, res) => {
   const c = { ...DEFAULTS, ...req.body };
-  const m = mailer.buildMessage(c, { email: 'ejemplo@correo.com', nombre: String(req.body.nombreEjemplo || 'María'), token: 'vista-previa' });
-  res.json({ asunto: m.subject, html: m.html, remitente: c.remitenteNombre || mailer.cfg().fromName });
-});
+  const sender = await remitentes.obtener(c.remitenteId).catch(() => null);
+  const m = mailer.buildMessage(c, { email: 'ejemplo@correo.com', nombre: String(req.body.nombreEjemplo || 'María'), token: 'vista-previa' }, sender);
+  const manual = c.destino === 'manual' ? parseManual(c.manualTexto) : null;
+  res.json({
+    asunto: m.subject, html: m.html, remitente: m.from.name, remitenteEmail: sender ? sender.email : null,
+    revision: revisarAntispam(c, sender),
+    manual: manual && { validos: manual.contactos.length, invalidos: manual.invalidos },
+  });
+}));
 
 app.post('/api/campanas/:id/prueba', wrap(async (req, res) => {
   const c = await mailer.campaigns.get(req.params.id);
@@ -249,6 +301,9 @@ app.post('/api/campanas/:id/prueba', wrap(async (req, res) => {
 app.post('/api/campanas/:id/enviar', wrap(async (req, res) => {
   const c = await mailer.campaigns.get(req.params.id);
   if (!c) return res.status(404).json({ error: 'No existe' });
+  const pendientes = [c.asunto, c.preheader, c.titular, c.mensaje, c.cierre, c.botonTexto].join(' ').match(/\[[^\]]{2,60}\]/g);
+  if (pendientes) return res.status(400).json({ error: `Completa los textos de la plantilla antes de enviar: ${pendientes.slice(0, 3).join(', ')}` });
+  if (c.destino === 'manual' && !(c.manual || []).length) return res.status(400).json({ error: 'Escribe al menos un correo válido en destinatarios.' });
   const activa = await kv.get('activa');
   if (activa && activa !== c.id) {
     const other = await mailer.campaigns.get(activa);
@@ -393,6 +448,126 @@ app.get('/api/contenidos', wrap(async (req, res) => {
   res.json((await contenidos.all()).sort((a, b) => b.creado.localeCompare(a.creado)).slice(0, 60));
 }));
 app.delete('/api/contenidos/:id', wrap(async (req, res) => { await contenidos.del(req.params.id); res.json({ ok: true }); }));
+
+// ---- Usuarios ----
+app.get('/api/usuarios', wrap(async (req, res) => res.json(await usuarios.listar())));
+app.post('/api/usuarios', wrap(async (req, res) => {
+  try { res.json(await usuarios.guardar(req.body, req.user)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.delete('/api/usuarios/:u', wrap(async (req, res) => {
+  try { await usuarios.eliminar(req.params.u); res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+
+// ---- Remitentes ----
+app.get('/api/remitentes', wrap(async (req, res) => res.json(await remitentes.listar())));
+app.post('/api/remitentes', wrap(async (req, res) => {
+  try { res.json(await remitentes.guardar(req.body)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/remitentes/:id/probar', wrap(async (req, res) => {
+  try { await remitentes.probar(req.params.id); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: 'No se pudo conectar: ' + e.message }); }
+}));
+app.delete('/api/remitentes/:id', wrap(async (req, res) => { await remitentes.eliminar(req.params.id); res.json({ ok: true }); }));
+
+// ---- Redacción con IA (opcional) ----
+app.post('/api/ia/redactar-correo', wrap(async (req, res) => {
+  try { res.json(await ia.redactarCorreo({ tipo: TIPOS[req.body.tipo] ? TIPOS[req.body.tipo].nombre : 'Invitación', idea: String(req.body.idea || '').slice(0, 3000), publico: String(req.body.publico || ''), enlace: String(req.body.enlace || '') })); }
+  catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+}));
+
+// ---- Archivos (piezas gráficas, imágenes y videos) ----
+const uploadLocal = multer({ storage: multer.memoryStorage(), limits: { fileSize: 150 * 1024 * 1024 } });
+const TIPOS_ARCHIVO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm', 'application/pdf'];
+// En Vercel el navegador sube directo a Vercel Blob (sin límite de 4,5 MB); aquí se autoriza.
+app.post('/api/archivos/token', wrap(async (req, res) => {
+  if (!uploads.blobConfigured()) return res.status(400).json({ error: 'Conecta Vercel Blob para subir archivos.' });
+  const { handleUpload } = require('@vercel/blob/client');
+  const out = await handleUpload({
+    body: req.body,
+    request: req,
+    onBeforeGenerateToken: async () => ({ allowedContentTypes: TIPOS_ARCHIVO, maximumSizeInBytes: 300 * 1024 * 1024, addRandomSuffix: true, tokenPayload: req.user }),
+  });
+  res.json(out);
+}));
+// En local (sin Blob) se recibe el archivo directamente.
+app.post('/api/archivos', uploadLocal.single('archivo'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Elige un archivo.' });
+  if (!TIPOS_ARCHIVO.includes(req.file.mimetype)) return res.status(400).json({ error: 'Formato no permitido. Usa JPG, PNG, WEBP, GIF, MP4, MOV, WEBM o PDF.' });
+  if (process.env.VERCEL && !uploads.blobConfigured()) return res.status(400).json({ error: 'Conecta Vercel Blob para subir archivos.' });
+  try { res.json({ url: await uploads.guardarArchivo(req.file.buffer, req.file.mimetype, req.file.originalname, mailer.cfg().baseUrl), tipo: req.file.mimetype, nombre: req.file.originalname }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+}));
+
+// ---- Piezas para revisión ----
+app.get('/api/piezas', wrap(async (req, res) => res.json(await oficina.listarPiezas())));
+app.post('/api/piezas', wrap(async (req, res) => {
+  const p = await oficina.crearPieza(req.body, req.perfil);
+  if (req.body.archivo) await oficina.agregarVersion(p.id, req.body.archivo, req.perfil);
+  res.json(await oficina.obtenerPieza(p.id));
+}));
+app.put('/api/piezas/:id', wrap(async (req, res) => {
+  try { res.json(await oficina.editarPieza(req.params.id, req.body)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/piezas/:id/version', wrap(async (req, res) => {
+  try {
+    const p = await oficina.agregarVersion(req.params.id, req.body, req.perfil);
+    if (req.body.nota) await oficina.comentar(p.id, 'Nueva versión: ' + req.body.nota, req.perfil);
+    res.json(await oficina.obtenerPieza(p.id));
+  } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/piezas/:id/comentario', wrap(async (req, res) => {
+  try { res.json(await oficina.comentar(req.params.id, req.body.texto, req.perfil)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/piezas/:id/decision', wrap(async (req, res) => {
+  try { res.json(await oficina.decidir(req.params.id, req.body, req.perfil)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.delete('/api/piezas/:id', wrap(async (req, res) => {
+  if (req.perfil.rol !== 'admin') return res.status(403).json({ error: 'Solo la jefatura puede eliminar piezas.' });
+  await oficina.eliminarPieza(req.params.id); res.json({ ok: true });
+}));
+app.post('/api/ia/revisar-pieza', wrap(async (req, res) => {
+  const p = await oficina.obtenerPieza(String(req.body.pieza || ''));
+  if (!p) return res.status(404).json({ error: 'La pieza no existe.' });
+  const imagenes = (Array.isArray(req.body.imagenes) ? req.body.imagenes : []).filter(i => i && /^image\/(jpeg|png|webp)$/.test(i.media_type) && typeof i.data === 'string').slice(0, 6);
+  if (!imagenes.length) return res.status(400).json({ error: 'No se pudo leer la imagen para revisarla.' });
+  try {
+    const v = p.versiones[p.versiones.length - 1];
+    const r = await ia.revisarPieza({ imagenes, titulo: p.titulo, descripcion: p.descripcion, canal: p.canal, fecha: p.fechaPublicacion, esVideo: v && v.tipo === 'video' });
+    res.json(await oficina.guardarRevisionIA(p.id, r, p.versiones.length));
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+}));
+
+// ---- Calendario editorial ----
+app.get('/api/calendario', wrap(async (req, res) => res.json(await oficina.listarEventos(req.query.desde, req.query.hasta))));
+app.post('/api/calendario', wrap(async (req, res) => {
+  try { res.json(await oficina.guardarEvento(req.body, req.perfil)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.delete('/api/calendario/:id', wrap(async (req, res) => { await oficina.eliminarEvento(req.params.id); res.json({ ok: true }); }));
+
+// ---- Inicio: lo que necesita atención hoy ----
+app.get('/api/hoy', wrap(async (req, res) => {
+  const hoy = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
+  const en7 = new Date(Date.now() - 5 * 3600e3 + 7 * 86400e3).toISOString().slice(0, 10);
+  const [piezas, eventos] = await Promise.all([oficina.listarPiezas(), oficina.listarEventos(hoy, en7)]);
+  const out = {
+    hoy,
+    piezas: {
+      revision: piezas.filter(p => p.estado === 'revision').length,
+      cambios: piezas.filter(p => p.estado === 'cambios').length,
+      aprobadas: piezas.filter(p => p.estado === 'aprobada').length,
+      recientes: piezas.slice(0, 6).map(p => ({ id: p.id, titulo: p.titulo, estado: p.estado, autorNombre: p.autorNombre, actualizado: p.actualizado, canal: p.canal, miniatura: p.versiones.length ? p.versiones[p.versiones.length - 1] : null })),
+    },
+    agenda: eventos.slice(0, 12),
+  };
+  if (req.perfil.rol !== 'diseno') {
+    const camps = await mailer.campaigns.all();
+    const env = camps.find(c => c.estado === 'enviando');
+    out.correo = env ? { nombre: env.nombre, stats: await mailer.campaignStats(env.id) } : null;
+    out.contactos = await mailer.contacts.count();
+    out.publicaciones = (await ig.posts.all()).length;
+  }
+  res.json(out);
+}));
 
 // Errores
 app.use((err, req, res, next) => {

@@ -16,14 +16,21 @@
   <aside class="side">
     <a class="brand" href="/"><img src="/img/logo_sm.png" alt=""><div><b>Sala de Prensa</b><span>Villa del Rosario</span></div></a>
     <nav class="nav" id="nav">
-      <button data-v="analizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6M11 8v6"/></svg>Analizar publicación</button>
-      <button data-v="resumen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/></svg>Tablero</button>
-      <button data-v="estudio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 1.9 4.6L18 9.5l-4.1 1.9L12 16l-1.9-4.6L6 9.5l4.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>Estudio de contenidos</button>
-      <button data-v="correos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Campañas de correo</button>
-      <button data-v="contactos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-5.5"/></svg>Base de datos</button>
-      <button data-v="instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>Cuenta de Instagram</button>
-      <button data-v="informes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 17v-3M12 17v-6M16 17v-4"/></svg>Informes</button>
-      <button data-v="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ajustes</button>
+      <div class="nav-g">Día a día</div>
+      <button data-v="inicio" data-roles="admin,diseno,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 3l9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
+      <button data-v="piezas" data-roles="admin,diseno,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Piezas para revisar <span class="nav-badge" id="badge-piezas"></span></button>
+      <button data-v="calendario" data-roles="admin,diseno,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendario editorial</button>
+      <div class="nav-g" data-roles="admin,consulta">Comunicación</div>
+      <button data-v="correos" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Correos</button>
+      <button data-v="contactos" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-5.5"/></svg>Bases de datos</button>
+      <button data-v="estudio" data-roles="admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 1.9 4.6L18 9.5l-4.1 1.9L12 16l-1.9-4.6L6 9.5l4.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>Estudio de contenidos</button>
+      <div class="nav-g" data-roles="admin,consulta">Medición</div>
+      <button data-v="analizar" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M8 11h6M11 8v6"/></svg>Analizar publicación</button>
+      <button data-v="resumen" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/></svg>Tablero</button>
+      <button data-v="instagram" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>Cuenta de Instagram</button>
+      <button data-v="informes" data-roles="admin,consulta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 17v-3M12 17v-6M16 17v-4"/></svg>Informes</button>
+      <div class="nav-g" data-roles="admin">Configuración</div>
+      <button data-v="ajustes" data-roles="admin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ajustes y usuarios</button>
     </nav>
     <div class="stripe"></div>
     <div class="foot">Sesión: <b id="who">—</b> · <a href="/logout">Salir</a></div>
@@ -31,6 +38,34 @@
 
   <main>
     <div id="sending"></div>
+
+    <!-- INICIO -->
+    <section class="view" id="v-inicio">
+      <div class="top"><div><h1 id="hola">Hola</h1><p id="hoy-fecha"></p></div></div>
+      <div class="grid g4" id="hoy-kpis"></div>
+      <div class="quick" id="hoy-acciones"></div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card"><div class="card-h"><h2>Piezas recientes</h2><button class="btn sm alt" onclick="App.go('piezas')">Ver todas</button></div><div id="hoy-piezas"></div></div>
+        <div class="card"><div class="card-h"><h2>Agenda de los próximos 7 días</h2><button class="btn sm alt" onclick="App.go('calendario')">Calendario</button></div><div id="hoy-agenda"></div></div>
+      </div>
+      <div class="card tips" id="hoy-tips"></div>
+    </section>
+
+    <!-- PIEZAS -->
+    <section class="view" id="v-piezas">
+      <div class="top"><div><h1>Piezas para revisar</h1><p>El equipo de diseño sube cada imagen o video; la jefatura revisa, comenta y aprueba antes de publicar.</p></div>
+        <button class="btn hot" onclick="Piezas.nueva()">+ Subir pieza</button></div>
+      <div class="tabs" id="pz-tabs"></div>
+      <div class="pz-grid" id="pz-grid"></div>
+    </section>
+
+    <!-- CALENDARIO -->
+    <section class="view" id="v-calendario">
+      <div class="top"><div><h1>Calendario editorial</h1><p>Lo que se publica, cuándo y por qué canal. Las piezas aprobadas con fecha aparecen solas.</p></div>
+        <div class="row"><button class="btn alt" onclick="Cal.mover(-1)">‹</button><b id="cal-mes" style="min-width:150px;text-align:center"></b><button class="btn alt" onclick="Cal.mover(1)">›</button><button class="btn hot" id="cal-nuevo" onclick="Cal.editar()">+ Agregar</button></div></div>
+      <div class="card"><div class="cal" id="cal"></div></div>
+      <div class="card"><h2>Próximas publicaciones</h2><div id="cal-lista"></div></div>
+    </section>
 
     <!-- ANALIZAR -->
     <section class="view" id="v-analizar">
@@ -89,70 +124,87 @@
 
     <!-- CORREOS -->
     <section class="view" id="v-correos">
-      <div class="top"><div><h1>Campañas de correo</h1><p>Invitaciones personalizadas, una cada <b id="delay-lbl">10</b> segundos para cuidar la reputación del remitente.</p></div>
-        <button class="btn" onclick="Mail.nueva()">+ Nueva campaña</button></div>
+      <div class="top"><div><h1>Correos</h1><p>Redacta, revisa y envía correos profesionales. Se envían uno cada <b id="delay-lbl">10</b> segundos para cuidar la reputación del remitente.</p></div>
+        <button class="btn" onclick="Mail.nueva()">+ Nuevo correo</button></div>
       <div id="smtp-warn"></div>
       <div class="grid g2">
         <div class="card">
-          <div class="card-h"><h2 id="ed-title">Nueva campaña</h2><span id="ed-state"></span></div>
+          <div class="card-h"><h2 id="ed-title">Nuevo correo</h2><span id="ed-state"></span></div>
           <form id="ed" onsubmit="return false">
-            <label>Nombre interno de la campaña</label><input type="text" name="nombre">
-            <label>Nombre del remitente <span class="muted">(lo primero que se ve en la notificación)</span></label><input type="text" name="remitenteNombre">
-            <label>Asunto</label><input type="text" name="asunto" maxlength="120"><div class="hint">Usa <code>{{nombre}}</code> para saludar a cada persona por su nombre. Ideal: menos de 60 caracteres.</div>
-            <label>Texto de vista previa</label><input type="text" name="preheader" maxlength="160"><div class="hint">Aparece junto al asunto en la bandeja y en la notificación del celular.</div>
+            <div class="step">1. Tipo y remitente</div>
+            <div class="grid g2">
+              <div><label>Tipo de correo</label><select name="tipo" id="ed-tipo"></select></div>
+              <div><label>Enviar desde</label><select name="remitenteId" id="ed-rem"></select></div>
+            </div>
+            <div class="row" style="margin-top:8px"><button class="btn sm alt" type="button" onclick="Mail.usarPlantilla()">Usar plantilla de este tipo</button><button class="btn sm alt" type="button" id="btn-ia-correo" onclick="Mail.redactarIA()">✦ Redactar con IA</button></div>
+            <label>Nombre interno</label><input type="text" name="nombre" placeholder="Para encontrarlo después">
+            <label>Nombre que verán como remitente</label><input type="text" name="remitenteNombre" placeholder="Ej.: Alcaldía de Villa del Rosario">
+
+            <div class="step">2. Destinatarios</div>
+            <div class="seg"><label><input type="radio" name="destino" value="base" checked> Desde la base de datos</label><label><input type="radio" name="destino" value="manual"> Escribir correos</label></div>
+            <div id="dest-base"><select name="segmento" id="seg"></select></div>
+            <div id="dest-manual" style="display:none"><textarea name="manualTexto" style="min-height:90px" placeholder="Uno o varios correos, separados por coma o en líneas distintas.&#10;Ej.: Ana Pérez <ana@correo.com>, periodista@medio.com"></textarea><div class="hint" id="manual-info"></div></div>
+
+            <div class="step">3. Contenido</div>
+            <label>Asunto</label><input type="text" name="asunto" maxlength="120"><div class="hint">Usa <code>{{nombre}}</code> para saludar a cada persona por su nombre.</div>
+            <label>Texto de vista previa</label><input type="text" name="preheader" maxlength="160"><div class="hint">Se ve junto al asunto en la bandeja y en la notificación.</div>
             <label>Imagen principal (opcional)</label>
-            <div class="row"><input type="url" name="imagenUrl" placeholder="https://… o sube una imagen" style="flex:1;min-width:180px"><label class="btn sm alt" style="margin:0">Subir<input type="file" accept="image/*" hidden onchange="Mail.subirImagen(this)"></label></div>
+            <div class="row"><input type="url" name="imagenUrl" placeholder="https://… o sube una imagen" style="flex:1;min-width:180px"><label class="btn sm alt" style="margin:0">Subir<input type="file" accept="image/*" hidden onchange="Mail.subirImagen(this, 'imagenUrl')"></label></div>
             <input type="hidden" name="imagenAlt">
-            <label>Titular del correo</label><input type="text" name="titular">
-            <label>Mensaje</label><textarea name="mensaje"></textarea><div class="hint">Separa los párrafos con una línea en blanco.</div>
-            <div class="grid g2"><div><label>Texto del botón</label><input type="text" name="botonTexto"></div><div><label>Enlace del botón</label><input type="url" name="botonUrl"></div></div>
+            <label>Titular</label><input type="text" name="titular">
+            <label>Mensaje</label><textarea name="mensaje"></textarea><div class="hint">Separa los párrafos con una línea en blanco. Los [corchetes] de las plantillas se deben completar.</div>
+
+            <div class="step">4. Botones</div>
+            <div class="grid g2"><div><label>Botón principal</label><input type="text" name="botonTexto" placeholder="Ej.: Ver la programación"></div><div><label>Lleva a</label><input type="url" name="botonUrl" placeholder="https://"></div></div>
+            <div class="grid g2"><div><label>Botón secundario (opcional)</label><input type="text" name="boton2Texto" placeholder="Ej.: Cómo llegar"></div><div><label>Lleva a</label><input type="url" name="boton2Url" placeholder="https://"></div></div>
+            <label>Nota bajo el botón (opcional)</label><input type="text" name="notaBoton">
             <label>Frase de cierre</label><input type="text" name="cierre">
-            <label>Enviar a</label><select name="segmento" id="seg"></select>
+
+            <details class="more"><summary>Opciones avanzadas</summary>
+              <label>Logo de la cabecera</label>
+              <div class="row"><input type="text" name="logoUrl" placeholder="Vacío = logo de la feria · escribe ninguno para quitarlo" style="flex:1;min-width:180px"><label class="btn sm alt" style="margin:0">Subir logo<input type="file" accept="image/*" hidden onchange="Mail.subirImagen(this, 'logoUrl')"></label></div>
+              <label>Motivo por el que reciben el correo (pie)</label><input type="text" name="motivo" placeholder="Ej.: Recibe este correo por su labor periodística…">
+            </details>
             <div class="row" style="margin-top:18px">
               <button class="btn" onclick="Mail.guardar()">Guardar</button>
               <button class="btn alt" onclick="Mail.prueba()">Enviar prueba</button>
-              <button class="btn hot" onclick="Mail.enviar()">Iniciar envío</button>
+              <button class="btn hot" onclick="Mail.enviar()">Enviar</button>
             </div>
           </form>
         </div>
-        <div class="card">
-          <div class="card-h"><h2>Así lo verán</h2><span class="muted small">Notificación en el celular</span></div>
-          <div class="inbox"><div class="notif" id="notif"><img src="/img/logo_sm.png" alt=""><div style="min-width:0;flex:1"><div class="who"><b id="n-from">—</b><span>ahora</span></div><div class="sub" id="n-sub">—</div><div class="pre" id="n-pre">—</div></div></div></div>
-          <iframe class="frame" id="frame" title="Vista previa del correo"></iframe>
+        <div>
+          <div class="card">
+            <div class="card-h"><h2>Revisión antispam</h2><span id="as-score" class="score-pill">—</span></div>
+            <ul class="checks" id="as-list"></ul>
+          </div>
+          <div class="card">
+            <div class="card-h"><h2>Así lo verán</h2><span class="muted small" id="n-email"></span></div>
+            <div class="inbox"><div class="notif" id="notif"><img src="/img/logo_sm.png" alt=""><div style="min-width:0;flex:1"><div class="who"><b id="n-from">—</b><span>ahora</span></div><div class="sub" id="n-sub">—</div><div class="pre" id="n-pre">—</div></div></div></div>
+            <iframe class="frame" id="frame" title="Vista previa del correo"></iframe>
+          </div>
         </div>
       </div>
-      <div class="card"><div class="card-h"><h2>Historial de campañas</h2></div><div id="camp-list"></div></div>
+      <div class="card"><div class="card-h"><h2>Historial de correos</h2></div><div id="camp-list"></div></div>
       <div class="card" id="camp-detail" style="display:none"><div class="card-h"><h2 id="cd-title">Actividad</h2><span class="muted small">Envíos, aperturas y clics por hora</span></div><div class="chart-box"><canvas id="ch-activity"></canvas></div><div class="table-wrap" style="margin-top:16px" id="cd-table"></div></div>
     </section>
 
     <!-- CONTACTOS -->
     <section class="view" id="v-contactos">
-      <div class="top"><div><h1>Base de datos</h1><p>Solo personas que autorizaron recibir información. Las bajas se respetan siempre.</p></div></div>
+      <div class="top"><div><h1>Bases de datos</h1><p>Sube cualquier base en Excel o CSV: primero la analizamos y luego decides si la importas.</p></div></div>
       <div class="grid g4" id="ct-kpis"></div>
       <div class="grid g2" style="margin-top:16px">
         <div class="card">
-          <h2>Subir base de datos</h2>
-          <p class="muted">Archivo CSV (desde Excel: Archivo → Guardar como → CSV). Columnas reconocidas: <code>email</code> o <code>correo</code>, <code>nombre</code>, <code>apellido</code>, <code>ciudad</code>, <code>telefono</code> y, si existe, <code>autorizacion</code> (Sí/No).</p>
-          <form id="up" onsubmit="return Contacts.subir(event)">
-            <label>Archivo</label><input type="file" name="archivo" accept=".csv,.txt,text/csv" required>
-            <label>Nombre de la lista</label><input type="text" name="lista" placeholder="Ej.: Registrados feria 2026">
-            <label class="check"><input type="checkbox" name="confirmo" value="si" required> Confirmo que todas las personas de esta base autorizaron recibir comunicaciones (Ley 1581 de 2012, Habeas Data).</label>
-            <div class="row" style="margin-top:16px"><button class="btn" type="submit">Importar</button><a class="btn alt" href="data:text/csv;charset=utf-8,email%2Cnombre%2Cciudad%2Cautorizacion%0Amaria%40ejemplo.com%2CMar%C3%ADa%20P%C3%A9rez%2CC%C3%BAcuta%2CS%C3%AD%0A" download="plantilla_contactos.csv">Descargar plantilla</a></div>
+          <h2>1. Analizar una base</h2>
+          <p class="muted">Excel (.xlsx) o CSV. Reconocemos columnas como correo, nombre, apellido, municipio, teléfono, organización, cargo y autorización.</p>
+          <form id="up" onsubmit="return Contacts.analizar(event)">
+            <label class="drop" style="margin-top:6px"><input type="file" name="archivo" accept=".xlsx,.csv,.txt" required onchange="this.closest('label').querySelector('span').textContent = this.files[0] ? this.files[0].name : 'Elige un archivo'"><span><b>Elige o arrastra el archivo</b></span></label>
+            <div class="row" style="margin-top:14px"><button class="btn" type="submit">Analizar base</button><a class="btn alt" href="data:text/csv;charset=utf-8,email%2Cnombre%2Cciudad%2Corganizacion%2Ccargo%2Cautorizacion%0Amaria%40ejemplo.com%2CMar%C3%ADa%20P%C3%A9rez%2CC%C3%BAcuta%2C%2C%2CS%C3%AD%0A" download="plantilla_contactos.csv">Descargar plantilla</a></div>
           </form>
-          <div id="up-res" style="margin-top:14px"></div>
         </div>
-        <div class="card">
-          <h2>Contactos por municipio</h2>
-          <div id="ct-cities"></div>
-          <h3 style="margin-top:18px">Para llegar a la bandeja principal</h3>
-          <ol class="list-steps">
-            <li>Envía desde un dominio propio con SPF, DKIM y DMARC configurados en tu proveedor.</li>
-            <li>Si el dominio es nuevo, empieza con pocos envíos diarios (<code>DAILY_LIMIT</code>).</li>
-            <li>Envía siempre una prueba a Gmail y Outlook antes de lanzar.</li>
-          </ol>
-        </div>
+        <div class="card"><h2>Contactos por municipio</h2><div id="ct-cities"></div></div>
       </div>
-      <div class="card"><div class="card-h"><h2>Contactos</h2><input type="text" id="ct-q" placeholder="Buscar por nombre, correo o ciudad" style="max-width:300px" oninput="Contacts.load()"></div><div class="table-wrap" id="ct-table"></div></div>
+      <div class="card" id="ct-analisis" style="display:none"></div>
+      <div class="card"><div class="card-h"><h2>Contactos</h2><input type="text" id="ct-q" placeholder="Buscar por nombre, correo, ciudad u organización" style="max-width:340px" oninput="Contacts.load()"></div><div class="table-wrap" id="ct-table"></div></div>
     </section>
 
     <!-- INSTAGRAM -->
@@ -188,7 +240,13 @@
 
     <!-- AJUSTES -->
     <section class="view" id="v-ajustes">
-      <div class="top"><div><h1>Ajustes</h1><p>Estado de las conexiones. Las claves se configuran en Vercel → Settings → Environment Variables.</p></div></div>
+      <div class="top"><div><h1>Ajustes y usuarios</h1><p>Personas con acceso, cuentas de correo para enviar y estado de las conexiones.</p></div></div>
+      <div class="grid g2">
+        <div class="card"><div class="card-h"><h2>Usuarios</h2><button class="btn sm hot" onclick="Ajustes.usuario()">+ Agregar usuario</button></div>
+          <p class="muted small">El rol <b>Diseño</b> solo puede subir piezas, ver sus comentarios y consultar el calendario.</p><div id="usr-list"></div></div>
+        <div class="card"><div class="card-h"><h2>Correos para enviar</h2><button class="btn sm hot" onclick="Ajustes.remitente()">+ Agregar correo</button></div>
+          <p class="muted small">Cada cuenta necesita sus datos SMTP (los da tu proveedor: Brevo, Google Workspace, Microsoft 365, etc.). La clave se guarda cifrada.</p><div id="rem-list"></div></div>
+      </div>
       <div class="grid g2">
         <div class="card"><h2>Conexiones</h2><div id="status"></div></div>
         <div class="card"><h2>Conectar Instagram</h2>
@@ -197,12 +255,12 @@
             <li>Crea una app en <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> con el producto Instagram.</li>
             <li>Genera un token con <code>instagram_basic</code>, <code>instagram_manage_insights</code>, <code>pages_show_list</code> y <code>pages_read_engagement</code>.</li>
             <li>Guárdalo en <code>IG_ACCESS_TOKEN</code> y el ID de la cuenta en <code>IG_USER_ID</code>.</li>
-          </ol>
-          <p class="muted small">Solo se usa la API oficial de Instagram: sin extraer datos de la página y sin riesgo de bloqueo.</p></div>
+          </ol></div>
       </div>
     </section>
   </main>
 </div>
+<div class="modal" id="modal" hidden><div class="modal-card" id="modal-card"></div></div>
 <div class="toast" id="toast"></div>
 <script src="/app.js"></script>
 </body>

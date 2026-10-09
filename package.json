@@ -22,7 +22,8 @@
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "multer": "^2.4.0",
-    "nodemailer": "^10.0.16"
+    "nodemailer": "^10.0.16",
+    "read-excel-file": "^9.3.12"
   },
   "engines": {
     "node": "22.x"

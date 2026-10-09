@@ -4,6 +4,18 @@ Herramienta de gestión para la oficina de prensa. Empieza con las **Ferias y Fi
 
 | Módulo | Qué hace |
 |---|---|
+| **Inicio** | Lo que necesita atención hoy: piezas por revisar, agenda de la semana y accesos rápidos. |
+| **Piezas para revisar** | Diseño sube cada imagen, video o PDF con el texto que lo acompaña. La jefatura revisa: comenta, marca la lista de verificación (ortografía, datos, logos, legibilidad) y aprueba o pide cambios. Las nuevas versiones quedan en la misma pieza. Con IA activada, revisa la ortografía y los datos de la imagen o de los fotogramas del video. |
+| **Calendario editorial** | Lo que se publica, cuándo y por qué canal. Las piezas aprobadas que tienen fecha aparecen solas. |
+| **Correos** | Siete tipos (invitación, comunicado, boletín, aviso importante, convocatoria, agradecimiento y para medios), cada uno con plantilla. Se elige desde qué cuenta se envía y a quién: a la base de datos o a correos escritos a mano. Admite dos botones de llamado a la acción y trae una revisión antispam en vivo. Envía un correo cada 10 segundos y mide aperturas, clics y bajas. |
+| **Bases de datos** | Sube cualquier Excel o CSV: primero ves el diagnóstico (correos válidos, repetidos, autorización, municipios, proveedores y organizaciones) y luego decides si la importas. |
+| **Estudio de contenidos (IA)** | Imagen y tema → textos para cada red, nota de prensa, SEO local y correo. |
+| **Analizar publicación** | Pega el enlace de cualquier publicación de Instagram: puntaje de impacto, indicadores, lectura del analista e informe PDF. |
+| **Tablero, cuenta e informes** | Seguidores reales, crecimiento y los informes ejecutivos en PDF. |
+| **Ajustes y usuarios** | Usuarios con roles: **Administrador**, **Diseño** (solo sube y corrige piezas y ve el calendario) y **Consulta** (solo lectura). Desde aquí también se agregan varios correos de envío, con sus datos SMTP y su límite diario. |
+| **Mensaje de bienvenida** | Cada vez que Ligia (`BIENVENIDA_USUARIO`) abre el panel, aparece un mensaje distinto de Juan Carlos. |
+
+---|---|
 | **Analizar publicación** | Pegas el enlace de cualquier publicación o reel de Instagram y obtienes el análisis al instante. Si es de la cuenta conectada, trae todas las estadísticas: alcance, vistas, guardados, compartidos, seguidores nuevos y comentarios. Si es de otra cuenta profesional, trae sus datos públicos (me gusta y comentarios) y los compara con el promedio de esa cuenta. Incluye un puntaje de impacto, la lectura del analista y una lectura ejecutiva con IA. |
 | **Informes PDF** | Hay cuatro tipos: publicación, cuenta, campaña de correo e informe integral. Se descargan con un clic. |
 | **Estudio de contenidos (IA)** | Subes una imagen y escribes el tema. Recibes textos para Instagram, Facebook, X y WhatsApp, una nota de prensa, el SEO local (título, meta descripción, slug, palabras clave y texto alternativo) y el correo listo. Con el botón **Crear correo con esto** se arma la campaña. |
@@ -87,6 +99,11 @@ src/emailTemplate.js   Plantilla del correo
 src/instagram.js       API de Instagram, Business Discovery y modo demostración
 src/analysis.js        Indicadores, puntaje, hallazgos y recomendaciones
 src/ia.js              Estudio de contenidos y lectura ejecutiva con Claude
-src/uploads.js         Imágenes (Vercel Blob)
+src/uploads.js         Imágenes y archivos (Vercel Blob)
+src/usuarios.js        Usuarios y roles
+src/remitentes.js      Cuentas de correo para enviar (clave cifrada)
+src/oficina.js         Piezas para revisión y calendario editorial
+src/antispam.js        Revisión de entregabilidad del correo
+public/vendor/         Cliente de Vercel Blob empaquetado (esbuild) para subir videos grandes
 public/                Página de inicio, panel e informe imprimible
 ```

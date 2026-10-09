@@ -22,4 +22,17 @@ async function guardarImagen(buffer, contentType, baseUrl) {
   return `${baseUrl}/uploads/${name}`;
 }
 
-module.exports = { guardarImagen, blobConfigured, LOCAL_DIR };
+// Archivos de piezas (imagen, video o PDF) cuando no hay Blob: se guardan en la carpeta local.
+async function guardarArchivo(buffer, contentType, nombre, baseUrl) {
+  const ext = (String(nombre).match(/\.([a-z0-9]{2,5})$/i) || [])[1] || EXT[contentType] || 'bin';
+  const name = `${new Date().toISOString().slice(0, 10)}-${id(8)}.${ext.toLowerCase()}`;
+  if (blobConfigured()) {
+    const { put } = require('@vercel/blob');
+    return (await put('piezas/' + name, buffer, { access: 'public', contentType })).url;
+  }
+  fs.mkdirSync(LOCAL_DIR, { recursive: true });
+  fs.writeFileSync(path.join(LOCAL_DIR, name), buffer);
+  return `${baseUrl}/uploads/${name}`;
+}
+
+module.exports = { guardarImagen, guardarArchivo, blobConfigured, LOCAL_DIR };

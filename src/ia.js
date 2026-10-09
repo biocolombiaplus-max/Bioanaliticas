@@ -144,4 +144,65 @@ ${JSON.stringify(datos, null, 1)}`,
   return ask({ content, schema: ANALISIS_SCHEMA, effort: 'medium', maxTokens: 8000 });
 }
 
-module.exports = { configured, generarContenido, analizarMetricas, MODEL };
+const REVISION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['veredicto', 'resumen', 'ortografia', 'datos', 'diseno', 'sugerencias'],
+  properties: {
+    veredicto: { type: 'string', enum: ['lista para publicar', 'requiere correcciones'] },
+    resumen: { type: 'string' },
+    ortografia: {
+      type: 'array',
+      items: { type: 'object', additionalProperties: false, required: ['dice', 'debe_decir', 'motivo'], properties: { dice: { type: 'string' }, debe_decir: { type: 'string' }, motivo: { type: 'string' } } },
+    },
+    datos: { type: 'array', items: { type: 'string' } },
+    diseno: { type: 'array', items: { type: 'string' } },
+    sugerencias: { type: 'array', items: { type: 'string' } },
+  },
+};
+
+// Revisión de una pieza gráfica (imagen o fotogramas de un video) antes de publicarla.
+async function revisarPieza({ imagenes = [], titulo, descripcion, canal, fecha, esVideo }) {
+  const content = [
+    ...imagenes.slice(0, 6).map(img => ({ type: 'image', source: { type: 'base64', media_type: img.media_type, data: img.data } })),
+    {
+      type: 'text',
+      text: `Revisa esta pieza como lo haría una jefa de prensa exigente antes de publicarla.
+${esVideo ? 'Las imágenes son fotogramas de un video, en orden; no tienes el audio.' : ''}
+Pieza: ${titulo || '(sin título)'} · Canal: ${canal || 'no indicado'} · Fecha prevista: ${fecha || 'no indicada'}
+Texto que acompaña la publicación: ${descripcion || '(no hay)'}
+
+1. Lee TODO el texto visible y el texto que acompaña. Lista cada error de ortografía, tildes, mayúsculas, puntuación o concordancia con lo que dice y lo que debe decir. No inventes errores: si no hay, deja la lista vacía.
+2. En "datos" señala fechas, horas, días de la semana, lugares, cifras o nombres que deban verificarse (por ejemplo, si el día de la semana no coincide con la fecha) o que falten.
+3. En "diseno" evalúa legibilidad en celular, contraste, jerarquía, saturación de elementos, uso de logos y si las medidas parecen adecuadas para el canal.
+4. En "sugerencias" da mejoras concretas y breves.
+El veredicto es "lista para publicar" solo si no hay errores de ortografía ni datos dudosos.`,
+    },
+  ];
+  return ask({ content, schema: REVISION_SCHEMA, effort: 'medium', maxTokens: 8000 });
+}
+
+const CORREO_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['asunto', 'preheader', 'titular', 'mensaje', 'boton_texto', 'cierre'],
+  properties: { asunto: { type: 'string' }, preheader: { type: 'string' }, titular: { type: 'string' }, mensaje: { type: 'string' }, boton_texto: { type: 'string' }, cierre: { type: 'string' } },
+};
+
+async function redactarCorreo({ tipo, idea, publico, enlace }) {
+  return ask({
+    content: [{
+      type: 'text',
+      text: `Redacta un correo de tipo "${tipo}" para la oficina de prensa.
+Idea o datos: ${idea}
+Público: ${publico || 'comunidad de Villa del Rosario y del área metropolitana de Cúcuta'}
+${enlace ? 'El botón llevará a: ' + enlace : ''}
+Usa {{nombre}} en el saludo. Asunto de máximo 55 caracteres, sin mayúsculas sostenidas, con un emoji como máximo y sin palabras típicas de spam (gratis, urgente, gana, oferta). Mensaje de 60 a 150 palabras, en párrafos cortos separados por una línea en blanco. Texto del botón de 2 a 4 palabras, con verbo de acción.`,
+    }],
+    schema: CORREO_SCHEMA,
+    effort: 'low',
+    maxTokens: 4000,
+  });
+}
+
+module.exports = { configured, generarContenido, analizarMetricas, revisarPieza, redactarCorreo, MODEL };
