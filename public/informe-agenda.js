@@ -36,7 +36,7 @@ const sec = (n, t, p) => `<div class="sec"><span class="n">${n}</span><div><h2>$
 // Fotos grandes: el diseño cambia según cuántas tenga la actividad.
 function fotosHtml(fotos) {
   const fs = fotos.slice(0, 4), n = fs.length;
-  const w = n === 1 ? 1400 : 900;
+  const w = n === 1 ? 1100 : 800;
   return `<div class="fotos f${n}">${fs.map(p => `<div class="ft" style="background-image:url('${esc(mini(p.url, w))}')">${p.nota ? `<em>${esc(p.nota)}</em>` : ''}</div>`).join('')}</div>`;
 }
 
@@ -44,54 +44,15 @@ function actHtml(a) {
   const { tipos, estados: est } = D;
   const eq = (a.equipo || []).map(x => D.equipo.find(m => m.id === x)).filter(Boolean);
   const nums = [[a.asistentes, 'asistentes'], [a.medios, 'medios'], [a.publicaciones, 'publicaciones'], [(a.fotos || []).length, 'fotos']].filter(([v]) => v);
-  const verFotos = document.getElementById('o-fotos').checked;
-  return `<div class="act ${a.estado}"><div class="t"><div>${a.hora ? `<div class="hr">${a.hora}${a.horaFin ? ' – ' + a.horaFin : ''}</div>` : ''}<b>${esc(a.titulo)}</b></div><span class="tag ${a.estado === 'realizada' ? 'ok' : ''}">${esc(est[a.estado])}</span></div>
+  const verFotos = document.getElementById('o-fotos').checked && (a.fotos || []).length;
+  const texto = `<div class="t"><div>${a.hora ? `<div class="hr">${a.hora}${a.horaFin ? ' – ' + a.horaFin : ''}</div>` : ''}<b>${esc(a.titulo)}</b></div><span class="tag ${a.estado === 'realizada' ? 'ok' : ''}">${esc(est[a.estado])}</span></div>
     <div class="chips"><span class="chip">${esc(tipos[a.tipo] || 'Actividad')}</span>${a.lugar ? `<span class="chip">📍 ${esc(a.lugar)}</span>` : ''}${a.participantes ? `<span class="chip">${esc(a.participantes)}</span>` : ''}</div>
     ${a.resultados ? `<div class="r"><b>Resultado:</b> ${esc(a.resultados)}</div>` : a.descripcion ? `<div class="r">${esc(a.descripcion)}</div>` : ''}
     ${eq.length ? `<div class="m"><b>Equipo:</b> ${eq.map(m => `${esc(m.nombre)} (${esc(m.cargo.toLowerCase())})`).join(', ')}</div>` : ''}
     ${nums.length ? `<div class="nums">${nums.map(([v, l]) => `<div><b>${nf(v)}</b>${l}</div>`).join('')}</div>` : ''}
-    ${verFotos && (a.fotos || []).length ? fotosHtml(a.fotos) : ''}
-    ${(a.enlaces || []).length ? `<div class="links">${a.enlaces.map(u => `<a href="${esc(u)}">${esc(u)}</a>`).join('<br>')}</div>` : ''}
-  </div>`;
-}
-
-// Arma las hojas: cada bloque entra completo en una hoja; si no cabe, pasa a la siguiente.
-function paginar(doc, secciones, head) {
-  const nueva = () => {
-    const s = document.createElement('section');
-    s.className = 'page';
-    s.innerHTML = `${head}<div class="pb"></div><div class="pf"><span>Periodo: ${fl(D.desde)} – ${fl(D.hasta)}</span><span class="pn"></span></div>`;
-    doc.appendChild(s);
-    return s.querySelector('.pb');
-  };
-  const poner = (pb, html) => { const d = document.createElement('div'); d.className = 'blk'; d.innerHTML = html; pb.appendChild(d); return d; };
-  const desborda = pb => pb.scrollHeight > pb.clientHeight + 1;
-  for (const s of secciones) {
-    let pb = nueva();
-    s.bloques.forEach((html, i) => {
-      const el = poner(pb, i === 0 ? s.titulo + html : html);
-      if (desborda(pb) && pb.children.length > 1) {
-        el.remove();
-        pb = nueva();
-        poner(pb, `<div class="cont"><b>${s.n}</b> · ${s.nombre} (continuación)</div>` + html);
-      }
-    });
-  }
-}
-
-// Reduce la letra de un recuadro de texto hasta que quepa en su espacio.
-function encajar(el, min = 9) {
-  if (!el) return;
-  el.style.fontSize = '';
-  let fs = parseFloat(getComputedStyle(el).fontSize);
-  while (el.scrollHeight > el.clientHeight + 1 && fs > min) { fs -= 0.5; el.style.fontSize = fs + 'px'; }
-}
-
-// En pantallas pequeñas la hoja carta se ve completa, a escala.
-function escalar() {
-  const doc = document.getElementById('doc');
-  const z = Math.min(1, (window.innerWidth - 16) / 816);
-  doc.style.zoom = z < 1 ? z.toFixed(3) : '';
+    ${(a.enlaces || []).length ? `<div class="links">${a.enlaces.map(u => `<a href="${esc(u)}">${esc(u)}</a>`).join('<br>')}</div>` : ''}`;
+  // Con fotos: texto a la izquierda y fotos grandes a la derecha, para que quepan más actividades por hoja.
+  return verFotos ? `<div class="act cf ${a.estado}"><div>${texto}</div>${fotosHtml(a.fotos)}</div>` : `<div class="act ${a.estado}">${texto}</div>`;
 }
 
 function render() {
@@ -134,20 +95,21 @@ function render() {
     </div>
   </div><div class="pf"><span>Periodo: ${fl(D.desde)} – ${fl(D.hasta)}</span><span class="pn"></span></div></section>`;
 
-  const secciones = [];
+  const bloques = [];
   const logros = T.logros.map(l => `<ul class="f" ${ed('logros')}><li>${esc(l)}</li></ul>`);
   if (D.correos.length) logros.push(`<h3 class="sub3">Comunicación directa por correo</h3>` + D.correos.map(c => `<ul class="f"><li>${esc(c.nombre)}: ${nf(c.enviados)} correos enviados, ${nf(c.abiertos)} aperturas y ${nf(c.clics)} clics.</li></ul>`).join(''));
   if (D.editorial.length) logros.push(`<h3 class="sub3">Publicaciones del calendario editorial</h3>` + D.editorial.slice(0, 12).map(e => `<ul class="f"><li>${esc(new Date(e.fecha + 'T12:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }))} · ${esc(e.titulo)}${e.canal ? ' (' + esc(e.canal) + ')' : ''}</li></ul>`).join(''));
-  secciones.push({ n: '02', nombre: 'Logros del periodo', titulo: sec('02', 'Logros del periodo', 'Principales resultados de la gestión'), bloques: logros.length ? logros : ['<p>Sin logros registrados.</p>'] });
+  (logros.length ? logros : ['<p>Sin logros registrados.</p>']).forEach((h, i) => bloques.push(i ? h : sec('02', 'Logros del periodo', 'Principales resultados de la gestión') + h));
 
   const dias = {};
   for (const a of items) (dias[a.fecha] ||= []).push(a);
   const bit = [];
   for (const [f, acts] of Object.entries(dias)) {
     const dia = `<div class="dia"><span>${new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}</span></div>`;
-    acts.forEach((a, i) => bit.push((i === 0 ? dia : '') + actHtml(a)));
+    acts.forEach((a, i) => { const h = actHtml(a); bit.push(h.includes('act cf') ? { html: (i === 0 ? dia : '') + h, compacto: (i === 0 ? dia : '') + h.replace('act cf', 'act cf compacto') } : (i === 0 ? dia : '') + h); });
   }
-  secciones.push({ n: '03', nombre: 'Bitácora de actividades', titulo: sec('03', 'Bitácora de actividades', 'Detalle de cada actividad con sus resultados y soportes'), bloques: bit.length ? bit : ['<p>No hay actividades en el periodo.</p>'] });
+  const tituloBit = `<div class="sep">${sec('03', 'Bitácora de actividades', 'Detalle de cada actividad con sus resultados y soportes')}</div>`;
+  (bit.length ? bit : ['<p>No hay actividades en el periodo.</p>']).forEach((h, i) => bloques.push(i ? h : typeof h === 'string' ? tituloBit + h : { html: tituloBit + h.html, compacto: tituloBit + h.compacto }));
 
   const eq = equipoInforme();
   const fin = [];
@@ -156,29 +118,27 @@ function render() {
     for (let i = 0; i < eq.length; i += 3) fin.push((i === 0 ? sec('04', 'Equipo de trabajo', 'Personas que hicieron posible la gestión del periodo') : '') + `<div class="eq-grid">${eq.slice(i, i + 3).map(m => `<div class="eqc"><span class="av" style="--c:${esc(m.color || C.violet)}">${esc(iniciales(m.nombre))}</span><div><b>${esc(m.nombre)}</b><div class="m">${esc(m.cargo)}</div><div class="m">${m.actividades ? `${nf(m.actividades)} ${m.actividades === 1 ? 'actividad' : 'actividades'}` : 'Apoyo transversal'}</div></div></div>`).join('')}</div>`);
     nRec = '05';
   }
-  T.recomendaciones.forEach((l, i) => fin.push((i === 0 ? `<div style="margin-top:${eq.length ? '8mm' : '0'}">${sec(nRec, 'Recomendaciones y próximos pasos')}</div>` : '') + `<ul class="f r" ${ed('recomendaciones')}><li>${esc(l)}</li></ul>`));
+  T.recomendaciones.forEach((l, i) => fin.push((i === 0 ? `<div class="${eq.length ? 'sep' : ''}">${sec(nRec, 'Recomendaciones y próximos pasos')}</div>` : '') + `<ul class="f r" ${ed('recomendaciones')}><li>${esc(l)}</li></ul>`));
   fin.push(`<div class="lead cierre" ${ed('cierre')}>${esc(T.cierre)}</div>`);
   fin.push(`<div class="firma">
       <div><div class="firma-box">${D.firma && D.firma.firma && document.getElementById('o-firma').checked ? `<img class="firma-img" src="${D.firma.firma}" alt="Firma">` : ''}</div><div class="linea"></div><b>${esc((D.firma && D.firma.nombreCompleto) || D.generadoPor)}</b><br>${esc((D.firma && D.firma.cargo) || 'Jefe(a) de Prensa')}<br>${esc(D.organizacion)}</div>
       <div><div class="firma-box"></div><div class="linea"></div><b>${esc((D.firma && D.firma.recibeNombre) || 'Recibido')}</b><br>${esc((D.firma && D.firma.recibeCargo) || 'Despacho')}<br>Fecha: ____ / ____ / ________</div>
     </div><p class="fuente">Fuente: agenda de gestión de la Oficina de Prensa (Sala de Prensa Digital). Las fotografías y enlaces son soporte de las actividades reportadas.</p>`);
-  const [a0, ...resto] = fin;
-  secciones.push({ n: eq.length ? '04' : nRec, nombre: eq.length ? 'Equipo y cierre' : 'Recomendaciones y cierre', titulo: '', bloques: [a0, ...resto] });
+  fin[0] = `<div class="sep">${fin[0]}</div>`;
+  bloques.push(...fin);
 
-  paginar(doc, secciones, head);
-  encajar(doc.querySelector('.row2 .lead'));
-  const pags = doc.querySelectorAll('.page:not(.cover) .pn');
-  pags.forEach((el, i) => { el.textContent = `Página ${i + 1} de ${pags.length}`; });
-
+  HC.paginar(doc, bloques, { head, pie: `<span>Periodo: ${fl(D.desde)} – ${fl(D.hasta)}</span>` });
+  HC.encajar(doc.querySelector('.row2 .lead'));
+  HC.numerar(doc);
   graficos(cf, tipos, pend);
-  escalar();
+  HC.escalar(doc);
 }
 
 // Gráficos con tamaño fijo (no dependen del ancho de la pantalla) para que el PDF salga igual en todos lados.
 function graficos(cf, tipos, pend) {
   charts.splice(0).forEach(c => c.destroy());
   if (!window.Chart) return;
-  const fijar = id => { const cv = document.getElementById(id), p = cv.parentElement; cv.width = p.clientWidth; cv.height = p.clientHeight; cv.style.width = p.clientWidth + 'px'; cv.style.height = p.clientHeight + 'px'; return cv; };
+  const fijar = HC.lienzo;
   const base = { responsive: false, devicePixelRatio: 3, layout: { padding: { right: 22, top: 4 } } };
   const valores = { id: 'valores', afterDatasetsDraw(ch) {
     const { ctx } = ch; ctx.save(); ctx.font = "600 10px Poppins, sans-serif"; ctx.fillStyle = '#1f1d3d';
@@ -205,35 +165,11 @@ function graficos(cf, tipos, pend) {
 
 // PDF real en tamaño carta, hoja por hoja (funciona igual en iPhone, Android y computador).
 async function descargarPDF() {
-  if (!window.html2canvas || !window.jspdf) { window.print(); return; }
   if (editando) { D.texto = leerTextos(); activarEdicion(false); render(); }
-  const velo = document.getElementById('velo'), doc = document.getElementById('doc');
   const b = document.getElementById('b-pdf'); b.disabled = true;
-  velo.hidden = false; velo.textContent = 'Preparando el PDF…';
-  doc.style.zoom = '';
-  try {
-    await document.fonts.ready;
-    const hojas = [...doc.querySelectorAll('.page')];
-    const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'letter', compress: true });
-    for (let i = 0; i < hojas.length; i++) {
-      velo.textContent = `Generando PDF… hoja ${i + 1} de ${hojas.length}`;
-      const cv = await html2canvas(hojas[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
-      if (i) pdf.addPage('letter');
-      pdf.addImage(cv.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 215.9, 279.4, undefined, 'FAST');
-    }
-    const nombre = `Informe-de-gestion-${D.desde}-a-${D.hasta}.pdf`;
-    const blob = pdf.output('blob');
-    const file = new File([blob], nombre, { type: 'application/pdf' });
-    if (/iPhone|iPad|Android/i.test(navigator.userAgent) && navigator.canShare && navigator.canShare({ files: [file] })) {
-      velo.innerHTML = `<div>PDF listo ✓<br><button id="v-share" style="margin-top:14px;font:inherit;font-weight:600;border:0;border-radius:999px;padding:12px 22px;background:#e0661f;color:#fff">Guardar o compartir</button><br><button id="v-x" style="margin-top:10px;font:inherit;border:0;background:none;color:#fff;opacity:.8">Cerrar</button></div>`;
-      await new Promise(res => {
-        document.getElementById('v-share').onclick = async () => { try { await navigator.share({ files: [file], title: nombre }); } catch { /* cancelado */ } res(); };
-        document.getElementById('v-x').onclick = res;
-      });
-    } else pdf.save(nombre);
-  } catch (e) { avisar('No se pudo generar el PDF: ' + e.message + '. Usa "Imprimir" y elige "Guardar como PDF".'); }
-  velo.hidden = true; b.disabled = false;
-  escalar();
+  try { await HC.descargarPDF(document.getElementById('doc'), `Informe-de-gestion-${D.desde}-a-${D.hasta}.pdf`); }
+  catch (e) { avisar(e.message); }
+  b.disabled = false;
 }
 
 // Lee los textos editados en la página para guardarlos.
@@ -250,7 +186,7 @@ async function main() {
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
   render();
   document.getElementById('b-pdf').onclick = descargarPDF;
-  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(escalar, 150); });
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => HC.escalar(document.getElementById('doc')), 150); });
   if (D.ia) document.getElementById('b-ia').style.display = '';
   const bf = document.getElementById('b-firma');
   bf.href = '/app.html?volver=' + encodeURIComponent(location.pathname + location.search) + '#firma';
@@ -272,7 +208,7 @@ async function main() {
     catch (e) { avisar(e.message); }
     b.disabled = false; b.textContent = '✦ Redactar con IA';
   };
-  if (q.get('imprimir') === '1') setTimeout(() => window.print(), 800);
+  if (q.get('imprimir') === '1') setTimeout(descargarPDF, 800);
 }
 
 // Selector de colaboradores que aparecen en el informe.
