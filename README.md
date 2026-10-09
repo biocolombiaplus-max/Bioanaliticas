@@ -32,15 +32,15 @@ Herramienta de gestión para la oficina de prensa. Empieza con las **Ferias y Fi
 2. Ve a **Add New → Project** e importa el repositorio `Bioanaliticas`. Deja la configuración tal como la propone (el archivo `vercel.json` ya trae todo) y pulsa **Deploy**.
 3. En el proyecto, entra a **Storage** y conecta:
    - **Redis** o **Upstash for Redis** (plan gratuito; en Upstash elige High Availability = None para ver el plan Free): es la base de datos. El panel reconoce `KV_REDIS_URL` (Redis Cloud) y `KV_REST_API_URL` (Upstash). Crea solas las variables de conexión.
-   - **Blob**: guarda las imágenes que se suben. Crea sola `BLOB_READ_WRITE_TOKEN`.
-4. En **Settings → Environment Variables**, agrega como mínimo:
+4. Para imágenes y videos crea una cuenta gratis en [cloudinary.com](https://cloudinary.com). En **Settings → API Keys** copia el **API environment variable** (empieza por `cloudinary://`) y guárdalo en Vercel como `CLOUDINARY_URL`. Así no se consume el espacio de Vercel.
+5. En **Settings → Environment Variables**, agrega como mínimo:
    - `ADMIN_USERS`, por ejemplo `ligia:UnaClaveSegura`
    - `SESSION_SECRET`: cualquier texto largo y aleatorio
    - `BASE_URL`: la dirección del proyecto, por ejemplo `https://sala-prensa.vercel.app`
    - `ANTHROPIC_API_KEY`: se crea en [console.anthropic.com](https://console.anthropic.com)
    - Los datos de SMTP e Instagram (ver más abajo)
-5. Vuelve a desplegar el proyecto (**Deployments → Redeploy**) para que tome las variables.
-6. Abre la dirección, ingresa con tu usuario y revisa **Ajustes**: ahí se ve qué está conectado y qué falta.
+6. Vuelve a desplegar el proyecto (**Deployments → Redeploy**) para que tome las variables.
+7. Abre la dirección, ingresa con tu usuario y revisa **Ajustes**: ahí se ve qué está conectado y qué falta.
 
 El listado completo de variables está en `.env.example`.
 
@@ -99,7 +99,7 @@ src/emailTemplate.js   Plantilla del correo
 src/instagram.js       API de Instagram, Business Discovery y modo demostración
 src/analysis.js        Indicadores, puntaje, hallazgos y recomendaciones
 src/ia.js              Estudio de contenidos y lectura ejecutiva con Claude
-src/uploads.js         Imágenes y archivos (Vercel Blob)
+src/uploads.js         Imágenes y videos (Cloudinary; alternativa Vercel Blob)
 src/usuarios.js        Usuarios y roles
 src/remitentes.js      Cuentas de correo para enviar (clave cifrada)
 src/oficina.js         Piezas para revisión y calendario editorial

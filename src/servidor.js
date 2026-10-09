@@ -154,11 +154,11 @@ app.get('/api/estado', wrap(async (req, res) => {
     estadosPieza: oficina.ESTADOS_PIEZA,
     estadosCal: oficina.ESTADOS_CAL,
     checklist: oficina.CHECKLIST,
-    blob: uploads.blobConfigured(),
+    archivos: uploads.proveedor(),
     smtp: (await remitentes.listar()).length > 0,
     instagram: ig.configured(),
     ia: ia.configured(),
-    imagenes: uploads.blobConfigured() || !process.env.VERCEL,
+    imagenes: Boolean(uploads.proveedor()),
     almacenamiento: kv.kind,
     vercel: Boolean(process.env.VERCEL),
     cron: Boolean(process.env.CRON_SECRET),
@@ -489,11 +489,15 @@ app.post('/api/archivos/token', wrap(async (req, res) => {
   });
   res.json(out);
 }));
-// En local (sin Blob) se recibe el archivo directamente.
+// Con Cloudinary el navegador sube directo con una firma temporal generada aquí.
+app.post('/api/archivos/firma', wrap(async (req, res) => {
+  try { res.json(uploads.firmaSubida(req.body.carpeta === 'imagenes' ? 'imagenes' : 'piezas')); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+// En local (sin Cloudinary ni Blob) se recibe el archivo directamente.
 app.post('/api/archivos', uploadLocal.single('archivo'), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Elige un archivo.' });
   if (!TIPOS_ARCHIVO.includes(req.file.mimetype)) return res.status(400).json({ error: 'Formato no permitido. Usa JPG, PNG, WEBP, GIF, MP4, MOV, WEBM o PDF.' });
-  if (process.env.VERCEL && !uploads.blobConfigured()) return res.status(400).json({ error: 'Conecta Vercel Blob para subir archivos.' });
+  if (!uploads.proveedor()) return res.status(400).json({ error: 'Conecta Cloudinary (CLOUDINARY_URL) para subir archivos.' });
   try { res.json({ url: await uploads.guardarArchivo(req.file.buffer, req.file.mimetype, req.file.originalname, mailer.cfg().baseUrl), tipo: req.file.mimetype, nombre: req.file.originalname }); }
   catch (e) { res.status(400).json({ error: e.message }); }
 }));

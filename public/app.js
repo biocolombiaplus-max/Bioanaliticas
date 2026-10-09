@@ -151,7 +151,7 @@ const App = {
     $('#status').innerHTML =
       line('Base de datos', e.almacenamiento === 'redis' || !e.vercel, e.almacenamiento === 'redis' ? 'Upstash Redis conectado.' : 'Archivo local (modo desarrollo).', 'Conecta Upstash Redis desde Vercel → Storage para guardar la información.') +
       line('Inteligencia artificial (Claude)', e.ia, 'Estudio de contenidos y lectura ejecutiva activos.', 'Agrega ANTHROPIC_API_KEY para activar el estudio de contenidos.') +
-      line('Imágenes', e.imagenes, 'Las imágenes subidas quedan con dirección pública para los correos.', 'Conecta Vercel Blob desde Vercel → Storage.') +
+      line('Imágenes y videos', e.imagenes, e.archivos === 'cloudinary' ? 'Cloudinary conectado.' : e.archivos === 'blob' ? 'Vercel Blob conectado.' : 'Carpeta local (modo desarrollo).', 'Conecta Cloudinary: agrega la variable CLOUDINARY_URL en Vercel.') +
       line('Envío de correos (SMTP)', e.smtp, `Remitente: ${esc(e.remitenteNombre)} &lt;${esc(e.remitente)}&gt;`, 'Modo prueba: los correos se generan pero no salen. Configura SMTP_HOST, SMTP_USER, SMTP_PASS y FROM_EMAIL.') +
       line('Instagram', e.instagram, 'API oficial de Instagram conectada.', 'Mostrando datos de demostración. Configura IG_ACCESS_TOKEN e IG_USER_ID.') +
       line('Envío automático', e.cron, 'Un servicio programado mantiene el envío aunque el panel esté cerrado.', 'Opcional: define CRON_SECRET y programa una llamada cada minuto a /api/cron/cola (ver README).') +
@@ -675,8 +675,23 @@ const Modal = {
 
 /* ---------------- Subida de archivos (imágenes, videos, PDF) ---------------- */
 const Archivo = {
-  async subir(file, onProgress) {
-    if (App.estado.blob) {
+  async subir(file, onProgress, carpeta = 'piezas') {
+    if (App.estado.archivos === 'cloudinary') {
+      // Sube directo a Cloudinary con una firma temporal (sirve para videos de hasta 100 MB en el plan gratuito).
+      const f = await api('/api/archivos/firma', { method: 'POST', body: { carpeta } });
+      const fd = new FormData();
+      fd.append('file', file); fd.append('api_key', f.apiKey); fd.append('timestamp', f.timestamp); fd.append('folder', f.folder); fd.append('signature', f.signature);
+      const r = await new Promise((ok, bad) => {
+        const x = new XMLHttpRequest();
+        x.open('POST', f.url);
+        x.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(Math.round(100 * e.loaded / e.total)); };
+        x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch { /* respuesta vacía */ } x.status < 300 && j.secure_url ? ok(j) : bad(new Error('No se pudo subir: ' + ((j.error && j.error.message) || x.status))); };
+        x.onerror = () => bad(new Error('No se pudo conectar con Cloudinary. Revisa tu conexión.'));
+        x.send(fd);
+      });
+      return { url: r.secure_url, tipo: file.type || (r.resource_type === 'video' ? 'video/mp4' : r.format === 'pdf' ? 'application/pdf' : 'image/' + r.format), nombre: file.name };
+    }
+    if (App.estado.archivos === 'blob') {
       // Sube directo a Vercel Blob (sirve para videos pesados).
       const { upload } = await import('/vendor/blob-client.js');
       const limpio = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-');
