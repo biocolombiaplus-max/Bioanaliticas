@@ -388,3 +388,21 @@ input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
   .quick button{min-width:0;padding:12px;font-size:13px;flex-direction:column;align-items:flex-start;gap:8px}
   .quick button i{width:30px;height:30px}
 }
+
+/* Eliminar con confirmación y deshacer */
+.icon-del{background:#fdecea;color:var(--bad);margin-left:auto;padding:6px 12px}
+.icon-del:hover{background:#f9d6d2}
+.btn.danger-solid{background:var(--bad);color:#fff}
+.btn.danger-solid:hover{background:#a5301f}
+.confirm{text-align:center;padding:8px 4px}
+.confirm-ic{width:64px;height:64px;border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;font-size:28px;background:var(--soft)}
+.confirm-ic.peligro{background:#fdecea}
+.confirm h2{font-size:19px}
+.confirm p{margin:8px 0 0}
+.confirm-acc{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
+.confirm-acc .btn{justify-content:center;padding:13px}
+.toast{display:flex;align-items:center;gap:14px}
+.toast-btn{font:inherit;font-weight:700;border:0;background:transparent;color:#ffb27a;cursor:pointer;padding:4px 2px;margin-left:auto;white-space:nowrap}
+.visor img{width:100%;max-height:65vh;object-fit:contain;border-radius:12px;background:#1f1d3d}
+.visor-acc{margin-top:12px;justify-content:center}
+@media (max-width:860px){.toast{left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:none}}

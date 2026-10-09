@@ -585,7 +585,17 @@ app.post('/api/agenda/:id/fotos', wrap(async (req, res) => {
 app.post('/api/agenda/:id/estado', wrap(async (req, res) => {
   try { res.json(await agendaMod.cambiarEstado(req.params.id, req.body.estado, req.body.resultados)); } catch (e) { res.status(400).json({ error: e.message }); }
 }));
-app.delete('/api/agenda/:id', wrap(async (req, res) => { await agendaMod.eliminar(req.params.id); res.json({ ok: true }); }));
+app.delete('/api/agenda/:id', wrap(async (req, res) => {
+  const previa = await agendaMod.obtener(req.params.id);
+  await agendaMod.eliminar(req.params.id);
+  res.json({ ok: true, previa });
+}));
+app.post('/api/agenda/restaurar', wrap(async (req, res) => {
+  try { res.json(await agendaMod.restaurar(req.body)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/agenda/:id/fotos/quitar', wrap(async (req, res) => {
+  try { res.json(await agendaMod.quitarFoto(req.params.id, String(req.body.url || ''))); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
 
 // Datos del informe de gestión: agenda + publicaciones del calendario + piezas aprobadas + correos del periodo.
 async function datosInformeAgenda(desde, hasta) {

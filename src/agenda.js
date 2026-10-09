@@ -73,6 +73,23 @@ async function agregarFotos(aid, fotos) {
   return a;
 }
 
+async function quitarFoto(aid, url) {
+  const a = await agenda.get(aid);
+  if (!a) throw new Error('La actividad no existe.');
+  a.fotos = (a.fotos || []).filter(f => f.url !== url);
+  a.actualizado = new Date().toISOString();
+  await agenda.put(a.id, a);
+  return a;
+}
+
+// Restaura una actividad eliminada (botón "Deshacer"), conservando su identificador.
+async function restaurar(a) {
+  if (!a || !/^a[\w-]{6,}$/.test(a.id || '')) throw new Error('No se puede restaurar.');
+  if (await agenda.get(a.id)) return agenda.get(a.id);
+  await agenda.put(a.id, { ...a, actualizado: new Date().toISOString() });
+  return a;
+}
+
 async function cambiarEstado(aid, estado, resultados) {
   const a = await agenda.get(aid);
   if (!a) throw new Error('La actividad no existe.');
@@ -136,4 +153,4 @@ function narrativa(items, r, desde, hasta) {
   };
 }
 
-module.exports = { TIPOS, ESTADOS, PRIORIDADES, listar, guardar, agregarFotos, cambiarEstado, resumen, narrativa, obtener: aid => agenda.get(aid), eliminar: aid => agenda.del(aid) };
+module.exports = { TIPOS, ESTADOS, PRIORIDADES, listar, guardar, agregarFotos, quitarFoto, restaurar, cambiarEstado, resumen, narrativa, obtener: aid => agenda.get(aid), eliminar: aid => agenda.del(aid) };

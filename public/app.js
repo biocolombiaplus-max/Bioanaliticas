@@ -16,9 +16,29 @@ async function api(url, opts = {}) {
   if (!r.ok) { const e = new Error(j.error || 'Error ' + r.status); Object.assign(e, j); throw e; }
   return j;
 }
-function toast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 4500);
+function toast(msg, accion) {
+  const t = $('#toast');
+  t.innerHTML = '';
+  t.append(document.createTextNode(msg));
+  if (accion) {
+    const b = document.createElement('button'); b.className = 'toast-btn'; b.type = 'button'; b.textContent = accion.texto;
+    b.onclick = () => { t.classList.remove('on'); accion.fn(); };
+    t.append(b);
+  }
+  t.classList.add('on');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), accion ? 7000 : 4500);
+}
+
+// Confirmación bonita (hoja inferior en el celular) en lugar del aviso del navegador.
+function confirmar({ titulo, texto, si = 'Eliminar', peligro = true }) {
+  return new Promise(ok => {
+    Modal.open(`<div class="confirm"><div class="confirm-ic ${peligro ? 'peligro' : ''}">${peligro ? '🗑' : '?'}</div><h2>${esc(titulo)}</h2>${texto ? `<p class="muted">${esc(texto)}</p>` : ''}
+      <div class="confirm-acc"><button class="btn alt" type="button" id="cf-no">Cancelar</button><button class="btn ${peligro ? 'danger-solid' : 'hot'}" type="button" id="cf-si">${esc(si)}</button></div></div>`, 'sm');
+    const fin = v => { Modal.close(); ok(v); };
+    $('#cf-no').onclick = () => fin(false);
+    $('#cf-si').onclick = () => fin(true);
+    $('#cf-si').focus();
+  });
 }
 async function copiar(text, btn) {
   try { await navigator.clipboard.writeText(text); } catch { const ta = document.createElement('textarea'); ta.value = text; document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
@@ -1001,10 +1021,11 @@ const Agenda = {
         <div class="row" style="flex-wrap:nowrap">${a.prioridad !== 'normal' ? `<span class="badge prio-${a.prioridad}">${a.prioridad === 'urgente' ? 'Urgente' : 'Alta'}</span>` : ''}<span class="badge ${a.estado === 'realizada' ? 'ok' : a.estado === 'cancelada' ? '' : a.estado === 'reprogramada' ? 'warn' : 'live'}" style="${a.estado === 'programada' ? 'background:#ece9fb;color:var(--navy)' : ''}">${esc(E[a.estado])}</span></div></div>
         ${a.resultados ? `<div class="res">✓ ${esc(a.resultados)}</div>` : a.descripcion ? `<div class="res muted">${esc(a.descripcion)}</div>` : ''}
         ${[a.asistentes ? `${nf(a.asistentes)} asistentes` : '', a.medios ? `${nf(a.medios)} medios` : '', a.publicaciones ? `${nf(a.publicaciones)} publicaciones` : '', (a.enlaces || []).length ? `${a.enlaces.length} enlaces` : ''].filter(Boolean).length ? `<div class="meta" style="margin-top:6px">${[a.asistentes ? `👥 ${nf(a.asistentes)} asistentes` : '', a.medios ? `🎙 ${nf(a.medios)} medios` : '', a.publicaciones ? `📣 ${nf(a.publicaciones)} publicaciones` : '', (a.enlaces || []).length ? `🔗 ${a.enlaces.length} enlaces` : ''].filter(Boolean).join(' · ')}</div>` : ''}
-        ${(a.fotos || []).length ? `<div class="fotos">${a.fotos.map(f => `<img src="${esc(mini(f.url, 160))}" alt="" loading="lazy" onclick="window.open('${esc(f.url)}','_blank')">`).join('')}</div>` : ''}
-        ${puede ? `<div class="acc">${a.estado !== 'realizada' ? `<button class="btn sm" style="background:var(--good)" onclick="Agenda.realizada('${a.id}')">✓ Realizada</button>` : ''}
+        ${(a.fotos || []).length ? `<div class="fotos">${a.fotos.map((f, i) => `<img src="${esc(mini(f.url, 160))}" alt="Foto ${i + 1}" loading="lazy" onclick="Agenda.verFoto('${a.id}', ${i})">`).join('')}</div>` : ''}
+        ${puede ? `<div class="acc">${['programada', 'reprogramada'].includes(a.estado) ? `<button class="btn sm" style="background:var(--good)" onclick="Agenda.realizada('${a.id}')">✓ Realizada</button>` : ''}
           <label class="btn sm alt" style="margin:0">📷 Fotos<input type="file" accept="image/*" multiple hidden onchange="Agenda.fotos('${a.id}', this)"></label>
-          <button class="btn sm alt" onclick="Agenda.editar('${a.id}')">Editar</button></div>` : ''}
+          <button class="btn sm alt" onclick="Agenda.editar('${a.id}')">Editar</button>
+          <button class="btn sm icon-del" onclick="Agenda.borrar('${a.id}')" aria-label="Eliminar actividad" title="Eliminar">🗑</button></div>` : ''}
       </div>`).join('')}</div>`).join('');
   },
   rango() { if (!$('#ag-desde').value || !$('#ag-hasta').value) return toast('Elige las dos fechas.'); Agenda.vista = 'rango'; Agenda.load(); },
@@ -1060,7 +1081,7 @@ const Agenda = {
         <label>Fotos de la actividad</label>
         <div class="row"><label class="btn alt" style="margin:0">📷 Tomar o elegir fotos<input type="file" accept="image/*" multiple hidden onchange="Agenda.fotosEnForm(this)"></label><span class="small muted" id="ag-subiendo"></span></div>
         <div class="fotos-prev" id="ag-fotos"></div>
-        <div class="row" style="margin-top:18px"><button class="btn hot" type="submit" id="ag-btn">Guardar</button>${id && App.puede() ? `<button class="btn danger" type="button" onclick="Agenda.borrar('${id}')">Eliminar</button>` : ''}</div>
+        <div class="row" style="margin-top:18px"><button class="btn hot" type="submit" id="ag-btn">Guardar</button>${id && App.puede() ? `<button class="btn danger" type="button" onclick="Modal.close();Agenda.borrar('${id}')">🗑 Eliminar</button>` : ''}</div>
       </form>`, 'sm');
     Agenda.pintarFotos();
   },
@@ -1079,7 +1100,32 @@ const Agenda = {
     try { await api('/api/agenda', { method: 'POST', body }); Modal.close(); toast('Actividad guardada'); Agenda.load(); } catch (e) { toast(e.message); }
     return false;
   },
-  async borrar(id) { if (!confirm('¿Eliminar esta actividad?')) return; await api('/api/agenda/' + id, { method: 'DELETE' }); Modal.close(); Agenda.load(); },
+  async borrar(id) {
+    const a = Agenda.items.find(x => x.id === id);
+    if (!(await confirmar({ titulo: '¿Eliminar esta actividad?', texto: a ? `"${a.titulo}"${(a.fotos || []).length ? ` y sus ${a.fotos.length} foto(s)` : ''} saldrá de la agenda y de los informes.` : '' }))) return;
+    try {
+      const r = await api('/api/agenda/' + id, { method: 'DELETE' });
+      Agenda.load();
+      toast('Actividad eliminada', { texto: 'Deshacer', fn: async () => { await api('/api/agenda/restaurar', { method: 'POST', body: r.previa }); toast('Actividad recuperada ✓'); Agenda.load(); } });
+    } catch (e) { toast(e.message); }
+  },
+  verFoto(id, i) {
+    const a = Agenda.items.find(x => x.id === id); if (!a) return;
+    const f = a.fotos[i];
+    Modal.open(`<div class="visor"><div class="modal-h"><h2>Foto ${i + 1} de ${a.fotos.length}</h2><button class="x" type="button" onclick="Modal.close()" aria-label="Cerrar">×</button></div>
+      <img src="${esc(mini(f.url, 1200).replace('c_fill', 'c_limit').replace(/h_\d+,/, ''))}" alt="">
+      <div class="row visor-acc">${i > 0 ? `<button class="btn alt" type="button" onclick="Agenda.verFoto('${id}', ${i - 1})">‹ Anterior</button>` : ''}${i < a.fotos.length - 1 ? `<button class="btn alt" type="button" onclick="Agenda.verFoto('${id}', ${i + 1})">Siguiente ›</button>` : ''}
+      <a class="btn alt" href="${esc(f.url)}" target="_blank" rel="noopener">Ver original</a>${App.puede() ? `<button class="btn danger" type="button" onclick="Agenda.quitarFoto('${id}', ${i})">🗑 Eliminar foto</button>` : ''}</div></div>`);
+  },
+  async quitarFoto(id, i) {
+    const a = Agenda.items.find(x => x.id === id); const f = a && a.fotos[i];
+    if (!f || !(await confirmar({ titulo: '¿Eliminar esta foto?', texto: 'Dejará de aparecer como soporte en la agenda y en el informe.' }))) return;
+    try {
+      await api(`/api/agenda/${id}/fotos/quitar`, { method: 'POST', body: { url: f.url } });
+      await Agenda.load();
+      toast('Foto eliminada', { texto: 'Deshacer', fn: async () => { await api(`/api/agenda/${id}/fotos`, { method: 'POST', body: { fotos: [f] } }); toast('Foto recuperada ✓'); Agenda.load(); } });
+    } catch (e) { toast(e.message); }
+  },
 };
 
 /* ---------------- Ajustes: usuarios, remitentes y conexiones ---------------- */
