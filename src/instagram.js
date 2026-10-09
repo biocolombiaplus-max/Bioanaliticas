@@ -102,6 +102,14 @@ async function authorOf(link) {
   } catch { return null; }
 }
 
+// Datos públicos del perfil de una cuenta profesional (empresa o creador), sin publicaciones.
+async function perfilProfesional(username) {
+  const u = String(username || '').replace(/^@/, '').replace(/[^\w.]/g, '');
+  if (!u) throw new Error('Usuario vacío');
+  const r = await api(process.env.IG_USER_ID, { fields: `business_discovery.username(${u}){username,name,biography,website,followers_count,media_count,profile_picture_url}` });
+  return r.business_discovery;
+}
+
 async function businessDiscovery(username) {
   const r = await api(process.env.IG_USER_ID, {
     fields: `business_discovery.username(${username}){username,name,biography,followers_count,media_count,profile_picture_url,media.limit(50){${PUBLIC_FIELDS}}}`,
@@ -252,4 +260,4 @@ async function refreshPosts() {
   }
 }
 
-module.exports = { configured, analyzeUrl, accountOverview, snapshotFollowers, followerHistory, savePost, history, refreshPosts, posts, parseUrl, id };
+module.exports = { perfilProfesional, configured, analyzeUrl, accountOverview, snapshotFollowers, followerHistory, savePost, history, refreshPosts, posts, parseUrl, id };

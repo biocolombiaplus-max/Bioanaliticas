@@ -83,7 +83,7 @@ const App = {
     document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
     document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
     history.replaceState(null, '', '#' + v);
-    ({ inicio: Inicio.load, agenda: Agenda.load, piezas: Piezas.load, calendario: Cal.load, analizar: Analizar.load, resumen: App.refresh, estudio: Studio.load, correos: Mail.load, contactos: Contacts.load, instagram: IG.account, informes: Reports.load, ajustes: Ajustes.load })[v]?.();
+    ({ inicio: Inicio.load, agenda: Agenda.load, piezas: Piezas.load, calendario: Cal.load, analizar: Analizar.load, resumen: App.refresh, estudio: Studio.load, correos: Mail.load, contactos: Contacts.load, directorio: () => { Directorio.d = null; Directorio.load(); }, instagram: IG.account, informes: Reports.load, ajustes: Ajustes.load })[v]?.();
     if (window.innerWidth < 860) document.querySelector('.view.on')?.scrollIntoView();
     window.scrollTo(0, 0);
   },
@@ -646,6 +646,179 @@ const Contacts = {
     return false;
   },
   async del(email) { if (confirm('¿Eliminar este contacto?')) { await api('/api/contactos/' + encodeURIComponent(email), { method: 'DELETE' }); Contacts.load(); } },
+};
+
+/* ---------------- Directorio y red (Google Maps, inscripciones, Instagram) ---------------- */
+const Directorio = {
+  d: null,
+  sel: (id, opts, todos) => { const el = $(id), v = el.value; el.innerHTML = `<option value="">${todos}</option>` + opts.map(([k, t]) => `<option value="${esc(k)}">${esc(t)}</option>`).join(''); el.value = v; },
+  filtros() { return new URLSearchParams({ q: $('#dr-q').value, municipio: $('#dr-muni').value, fuente: $('#dr-fuente').value, con: $('#dr-con').value, estado: $('#dr-estado').value }).toString(); },
+  async load() {
+    const primera = !Directorio.d;
+    const d = Directorio.d = await api('/api/directorio?' + Directorio.filtros());
+    const r = d.resumen;
+    if (primera) {
+      Directorio.sel('#dr-muni', [...d.municipios, 'Sin municipio'].map(m => [m, m]), 'Todos los municipios');
+      Directorio.sel('#dr-fuente', Object.entries(d.fuentes), 'Todas las fuentes');
+      Directorio.sel('#dr-estado', Object.entries(d.estados), 'Cualquier estado');
+      Directorio.registro(); Directorio.google(); Directorio.ig();
+    }
+    document.querySelectorAll('#v-directorio [data-solo-admin]').forEach(el => { el.style.display = App.puede() ? '' : 'none'; });
+    $('#dr-exportar').href = '/api/directorio/exportar?' + Directorio.filtros();
+    $('#dr-kpis').innerHTML = [
+      kpi('En el directorio', nf(r.total), `${nf(r.porFuente.google || 0)} de Google Maps · ${nf(r.porFuente.instagram || 0)} de Instagram`, C.violet),
+      kpi('Inscritos en la red', nf(r.autorizados), 'Con autorización de datos', C.green),
+      kpi('Con celular', nf(r.conWhatsapp), `${nf(r.conTelefono)} con algún teléfono`, C.orange),
+      kpi('Con correo', nf(r.conCorreo), 'Solo los inscritos reciben correos', C.blue),
+    ].join('');
+    const mun = Object.entries(r.porMunicipio).sort((a, b) => b[1] - a[1]);
+    const mx = Math.max(1, ...mun.map(m => m[1]));
+    $('#dr-munis').innerHTML = mun.length ? `<div class="funnel">${mun.map(([n, v]) => `<div class="f"><span>${esc(n)}</span><div class="track"><i style="width:${100 * v / mx}%;--c:${C.violet}"></i></div><b>${nf(v)}</b></div>`).join('')}</div>` : '<p class="muted">Aún no hay registros. Comparte el formulario de inscripción o busca en Google Maps.</p>';
+    $('#dr-cuenta').textContent = d.filtrados === r.total ? `· ${nf(r.total)}` : `· ${nf(d.filtrados)} de ${nf(r.total)}`;
+    Directorio.limite = 40;
+    Directorio.lista();
+  },
+  lista() {
+    const d = Directorio.d, ver = d.items.slice(0, Directorio.limite);
+    $('#dr-lista').innerHTML = ver.length ? `<div class="dr-grid">${ver.map(Directorio.card).join('')}</div>
+      <div class="row" style="justify-content:center;margin-top:12px">${d.items.length > ver.length ? `<button class="btn alt" type="button" onclick="Directorio.limite += 40; Directorio.lista()">Ver más (${nf(d.filtrados - ver.length)} restantes)</button>` : ''}${d.filtrados > d.items.length && ver.length === d.items.length ? '<p class="small muted">Usa los filtros o descarga el Excel para ver todos.</p>' : ''}</div>` : '<div class="empty">No hay registros con estos filtros.</div>';
+  },
+  card(x) {
+    const d = Directorio.d, puede = App.puede();
+    const tel = x.telefono ? `<a class="btn sm alt" href="tel:${esc(x.telefono.replace(/\s/g, ''))}">📞 Llamar</a>` : '';
+    const wa = x.whatsapp && puede ? `<button class="btn sm wa" type="button" onclick="Directorio.invitar('${x.id}')">WhatsApp</button>` : '';
+    return `<div class="dr"><div class="h"><div style="min-width:0"><b>${esc(x.nombre)}</b><div class="m">${esc([x.categoria || d.tipos[x.tipo], x.municipio].filter(Boolean).join(' · '))}</div></div><span class="dr-src ${x.fuente}">${x.consentimiento ? '✓ Inscrito' : esc(d.fuentes[x.fuente] || '')}</span></div>
+      ${x.direccion || x.barrio ? `<div class="m">📍 ${esc([x.direccion, x.barrio].filter(Boolean).join(' · '))}</div>` : ''}
+      ${x.telefono || x.correo ? `<div class="m">${esc([x.telefono, x.correo].filter(Boolean).join(' · '))}</div>` : ''}
+      ${x.rating ? `<div class="m">★ ${String(x.rating).replace('.', ',')} · ${nf(x.resenas)} reseñas en Google</div>` : ''}
+      ${x.seguidores ? `<div class="m">${nf(x.seguidores)} seguidores en Instagram</div>` : ''}
+      <div class="acc">${wa}${tel}${x.instagram ? `<a class="btn sm alt" target="_blank" rel="noopener" href="https://instagram.com/${esc(x.instagram)}">@${esc(x.instagram)}</a>` : ''}${x.web ? `<a class="btn sm alt" target="_blank" rel="noopener" href="${esc(x.web)}">Web</a>` : ''}${x.mapsUrl ? `<a class="btn sm alt" target="_blank" rel="noopener" href="${esc(x.mapsUrl)}">Mapa</a>` : ''}
+        ${puede ? `<select onchange="Directorio.estado('${x.id}', this.value)">${Object.entries(d.estados).map(([k, t]) => `<option value="${k}" ${k === x.estado ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select><button class="btn sm alt" type="button" onclick="Directorio.form('${x.id}')">Editar</button>` : `<span class="badge">${esc(d.estados[x.estado] || '')}</span>`}</div></div>`;
+  },
+  registro() {
+    const d = Directorio.d;
+    const txt = encodeURIComponent('Únete a la Red de negocios y creadores de Villa del Rosario y el área metropolitana. Inscríbete aquí: ' + d.registro);
+    $('#dr-registro').innerHTML = `<h2>1. Formulario de inscripción</h2>
+      <p class="muted">La forma correcta de crecer la base: cada negocio o creador se inscribe, deja su WhatsApp y su correo y autoriza el uso de sus datos (Ley 1581). Quien deja correo entra solo a la lista <b>Red Villa del Rosario</b> en Bases de datos.</p>
+      <div class="qr-box"><img src="/api/directorio/qr.png" alt="Código QR del formulario"><div style="min-width:0">
+        <div class="small" style="overflow-wrap:anywhere"><b>${esc(d.registro)}</b></div>
+        <div class="row" style="margin-top:8px"><button class="btn sm alt" type="button" onclick="copiar('${esc(d.registro)}', this)">Copiar enlace</button><a class="btn sm alt" href="${esc(d.registro)}" target="_blank" rel="noopener">Ver formulario</a><a class="btn sm alt" href="/api/directorio/qr.png" download="qr-inscripcion.png">Descargar QR</a><a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/?text=${txt}">Compartir</a></div>
+        <p class="small muted" style="margin-bottom:0">Ponlo en las historias de Instagram, en la Feria, en las ruedas de prensa y en los grupos de WhatsApp de comerciantes.</p></div></div>
+      ${App.puede() ? `<details style="margin-top:12px"><summary class="small"><b>Mensaje de invitación por WhatsApp</b> (se envía uno por uno desde el directorio)</summary>
+        <textarea id="dr-msg" rows="5" style="margin-top:8px">${esc(d.mensaje)}</textarea><p class="small muted">{nombre} se cambia por el nombre del negocio y {enlace} por el enlace del formulario.</p>
+        <button class="btn sm" type="button" onclick="Directorio.guardarMensaje()">Guardar mensaje</button></details>` : ''}`;
+  },
+  google() {
+    const d = Directorio.d;
+    if (!d.google) {
+      $('#dr-google').innerHTML = `<h2>2. Negocios de Google Maps</h2><p class="muted">Trae de la API oficial de Google los negocios del área: nombre, dirección, teléfono, sitio web y calificación, ordenados por municipio.</p>
+        <div class="demo-banner"><b>Falta conectar Google Maps.</b><ol class="small" style="margin:6px 0 0;padding-left:18px"><li>Entra a console.cloud.google.com, crea un proyecto y activa la facturación (Google da un cupo gratis cada mes).</li><li>En "APIs y servicios" activa <b>Places API (New)</b>.</li><li>En "Credenciales" crea una <b>clave de API</b> y restríngela a Places API (New).</li><li>En Vercel → Settings → Environment Variables agrega <b>GOOGLE_MAPS_API_KEY</b> con esa clave y vuelve a desplegar.</li></ol></div>`;
+      return;
+    }
+    $('#dr-google').innerHTML = `<h2>2. Negocios de Google Maps</h2><p class="muted">Datos públicos de negocios desde la API oficial de Google. Sirven para contacto institucional: llamar o invitar por WhatsApp a inscribirse. A estos negocios no se les envían correos masivos si no se han inscrito.</p>
+      ${App.puede() ? `<label>Municipios</label><div class="chips">${d.municipios.map((m, i) => `<label class="check" style="margin:0"><input type="checkbox" name="dr-m" value="${esc(m)}" ${i < 3 ? 'checked' : ''}> ${esc(m)}</label>`).join('')}</div>
+      <label>Buscar un tipo de negocio</label><div class="row"><input type="text" id="dr-cat" list="dr-cats" placeholder="Ej.: restaurantes, droguerías, hoteles" style="flex:1;min-width:0;margin:0"><button class="btn" type="button" onclick="Directorio.buscar()">Buscar</button></div>
+      <datalist id="dr-cats">${d.categorias.map(c => `<option>${esc(c)}</option>`).join('')}</datalist>
+      <div class="row" style="margin-top:10px"><button class="btn hot" type="button" id="dr-barrer" onclick="Directorio.barrido()">Barrido completo (${d.categorias.length} categorías)</button></div>
+      <div id="dr-prog" class="small muted" style="margin-top:10px"></div>
+      <p class="small muted" style="margin-bottom:0">Consultas a Google este mes: <b>${nf(d.consultasMes)}</b>. Cada búsqueda usa de 1 a 3 consultas; revisa el cupo gratis en tu cuenta de Google Cloud.</p>` : '<p class="muted">Solo la jefatura puede hacer búsquedas.</p>'}`;
+  },
+  ig() {
+    const d = Directorio.d;
+    $('#dr-ig').innerHTML = `<h2>3. Cuentas profesionales de Instagram</h2><p class="muted">Escribe los usuarios de negocios o creadores que ya conoces y la API oficial trae los datos públicos de su perfil: nombre, biografía, sitio web y seguidores. Solo funciona con cuentas de empresa o de creador.</p>
+      ${!d.instagram ? '<div class="demo-banner">Conecta Instagram en Ajustes (IG_ACCESS_TOKEN e IG_USER_ID) para usar esta búsqueda.</div>' : App.puede() ? `<textarea id="dr-igu" rows="3" placeholder="@negocio1 @creador2 @tienda3"></textarea><button class="btn" type="button" style="margin-top:8px" onclick="Directorio.consultarIg()">Consultar perfiles</button><div id="dr-igr"></div>` : ''}`;
+  },
+  municipios: () => [...document.querySelectorAll('input[name="dr-m"]:checked')].map(i => i.value),
+  async buscar() {
+    const cat = $('#dr-cat').value.trim(), ms = Directorio.municipios();
+    if (!cat) return toast('Escribe qué tipo de negocio buscar.');
+    if (!ms.length) return toast('Elige al menos un municipio.');
+    await Directorio.correr([cat], ms);
+  },
+  async barrido() {
+    const ms = Directorio.municipios();
+    if (!ms.length) return toast('Elige al menos un municipio.');
+    const n = Directorio.d.categorias.length * ms.length;
+    if (!(await confirmar({ titulo: `¿Hacer el barrido completo?`, texto: `Se harán ${n} búsquedas (${Directorio.d.categorias.length} categorías en ${ms.length} municipios), hasta ${n * 3} consultas a Google. Puede tardar varios minutos; deja esta pantalla abierta.`, si: 'Empezar', peligro: false }))) return;
+    await Directorio.correr(Directorio.d.categorias, ms);
+  },
+  async correr(cats, ms) {
+    if (Directorio.corriendo) { Directorio.parar = true; return; }
+    Directorio.corriendo = true; Directorio.parar = false;
+    const b = $('#dr-barrer'), prog = $('#dr-prog');
+    if (b) b.textContent = 'Detener';
+    const tareas = ms.flatMap(m => cats.map(c => [c, m]));
+    const tot = { nuevos: 0, actualizados: 0, otraZona: 0 };
+    let hechas = 0, error = '';
+    for (const [categoria, municipio] of tareas) {
+      if (Directorio.parar) break;
+      prog.innerHTML = `<div class="bar"><i style="width:${100 * hechas / tareas.length}%"></i></div><div style="margin-top:6px">Buscando <b>${esc(categoria)}</b> en ${esc(municipio)}… (${hechas + 1} de ${tareas.length}) · ${nf(tot.nuevos)} nuevos</div>`;
+      try { const r = await api('/api/directorio/google', { method: 'POST', body: { categoria, municipio } }); tot.nuevos += r.nuevos; tot.actualizados += r.actualizados; tot.otraZona += r.otraZona; }
+      catch (e) { error = e.message; break; }
+      hechas++;
+    }
+    Directorio.corriendo = false;
+    Directorio.ultimo = error ? `<span style="color:var(--bad)">${esc(error)}</span>` : `✓ ${hechas} de ${tareas.length} búsquedas · <b>${nf(tot.nuevos)} negocios nuevos</b>, ${nf(tot.actualizados)} actualizados${tot.otraZona ? `, ${nf(tot.otraZona)} fuera del área descartados` : ''}.`;
+    Directorio.d = null; await Directorio.load();
+    $('#dr-prog').innerHTML = Directorio.ultimo;
+  },
+  async consultarIg() {
+    const box = $('#dr-igr'); box.innerHTML = '<div class="empty"><span class="spin"></span> Consultando…</div>';
+    try {
+      const rs = Directorio.igRes = await api('/api/directorio/instagram', { method: 'POST', body: { usuarios: $('#dr-igu').value } });
+      const d = Directorio.d;
+      box.innerHTML = rs.map((p, i) => p.ok ? `<div class="ig-res">${p.foto ? `<img src="${esc(p.foto)}" alt="">` : '<img alt="">'}<div class="b"><b>${esc(p.nombre)}</b> <span class="small muted">@${esc(p.usuario)} · ${nf(p.seguidores)} seguidores</span><div class="small muted" style="overflow-wrap:anywhere">${esc(p.biografia.slice(0, 180))}</div>
+          <div class="row"><select id="ig-m-${i}"><option value="">Municipio…</option>${d.municipios.map(m => `<option ${m === p.municipio ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select><select id="ig-t-${i}">${Object.entries(d.tipos).map(([k, t]) => `<option value="${k}" ${k === 'creador' ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select><button class="btn sm" type="button" onclick="Directorio.guardarIg(${i}, this)">Guardar</button></div></div></div>`
+        : `<div class="ig-res"><img alt=""><div class="b"><b>@${esc(p.usuario)}</b><div class="small" style="color:var(--bad)">${esc(p.error)}</div></div></div>`).join('');
+    } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  },
+  async guardarIg(i, btn) {
+    const p = Directorio.igRes[i];
+    try { await api('/api/directorio/instagram/guardar', { method: 'POST', body: { ...p, municipio: $('#ig-m-' + i).value, tipo: $('#ig-t-' + i).value } }); btn.textContent = 'Guardado ✓'; btn.disabled = true; Directorio.load(); }
+    catch (e) { toast(e.message); }
+  },
+  async guardarMensaje() {
+    try { const r = await api('/api/directorio/mensaje', { method: 'POST', body: { mensaje: $('#dr-msg').value } }); Directorio.d.mensaje = r.mensaje; toast('Mensaje guardado'); } catch (e) { toast(e.message); }
+  },
+  // Invitación individual: abre WhatsApp con el mensaje listo; la persona decide si lo envía.
+  async invitar(id) {
+    const x = Directorio.d.items.find(i => i.id === id); if (!x) return;
+    const msg = Directorio.d.mensaje.replace(/\{nombre\}/g, x.contacto || x.nombre).replace(/\{enlace\}/g, Directorio.d.registro);
+    window.open(`https://wa.me/${x.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    if (x.estado === 'nuevo') { await api(`/api/directorio/${id}/estado`, { method: 'POST', body: { estado: 'contactado' } }).catch(() => {}); Directorio.load(); }
+  },
+  async estado(id, estado) { try { await api(`/api/directorio/${id}/estado`, { method: 'POST', body: { estado } }); toast('Estado actualizado'); } catch (e) { toast(e.message); } },
+  form(id) {
+    const d = Directorio.d, x = id ? d.items.find(i => i.id === id) : { tipo: 'negocio', municipio: 'Villa del Rosario' };
+    const campo = (n, l, v, t = 'text', extra = '') => `<div><label>${l}</label><input type="${t}" name="${n}" value="${esc(v || '')}" ${extra}></div>`;
+    Modal.open(`${Modal.head(id ? 'Editar registro' : 'Agregar al directorio')}
+      <form onsubmit="return Directorio.guardar(event)"><input type="hidden" name="id" value="${esc(x.id || '')}">
+        ${campo('nombre', 'Nombre del negocio o la persona', x.nombre, 'text', 'required')}
+        <div class="grid g2"><div><label>Tipo</label><select name="tipo">${Object.entries(d.tipos).map(([k, t]) => `<option value="${k}" ${k === x.tipo ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>${campo('categoria', 'Categoría', x.categoria, 'text', 'list="dr-cats"')}</div>
+        <div class="grid g2"><div><label>Municipio</label><select name="municipio"><option value="">—</option>${d.municipios.map(m => `<option ${m === x.municipio ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></div>${campo('barrio', 'Barrio', x.barrio)}</div>
+        ${campo('direccion', 'Dirección', x.direccion)}
+        <div class="grid g2">${campo('contacto', 'Persona de contacto', x.contacto)}${campo('telefono', 'Teléfono o celular', x.telefono, 'text', 'inputmode="tel"')}</div>
+        <div class="grid g2">${campo('correo', 'Correo', x.correo, 'email')}${campo('instagram', 'Instagram', x.instagram ? '@' + x.instagram : '')}</div>
+        <div class="grid g2">${campo('facebook', 'Facebook', x.facebook)}${campo('web', 'Sitio web', x.web)}</div>
+        <label>Notas</label><textarea name="notas" rows="3">${esc(x.notas || '')}</textarea>
+        ${x.consentimiento ? `<p class="small" style="color:var(--good)">✓ Se inscribió y autorizó sus datos el ${fdate(x.consentimientoEn)}.</p>` : '<p class="small muted">Este registro no tiene autorización de datos: se puede llamar o invitar por WhatsApp, pero no entra a los envíos de correo.</p>'}
+        <div class="row" style="margin-top:14px"><button class="btn hot" type="submit">Guardar</button>${id ? `<button class="btn danger" type="button" onclick="Directorio.borrar('${id}')">Eliminar</button>` : ''}<button class="btn alt" type="button" onclick="Modal.close()">Cancelar</button></div>
+      </form>`, 'sm');
+  },
+  async guardar(ev) {
+    ev.preventDefault();
+    try { await api('/api/directorio', { method: 'POST', body: Object.fromEntries(new FormData(ev.target)) }); Modal.close(); toast('Guardado'); Directorio.load(); } catch (e) { toast(e.message); }
+    return false;
+  },
+  async borrar(id) {
+    const x = Directorio.d.items.find(i => i.id === id);
+    if (!(await confirmar({ titulo: `¿Eliminar "${x ? x.nombre : 'este registro'}"?`, texto: 'Se quita del directorio.' }))) return Directorio.form(id);
+    try {
+      const del = await api('/api/directorio/' + id, { method: 'DELETE' });
+      Directorio.load();
+      toast('Registro eliminado', { texto: 'Deshacer', fn: async () => { await api('/api/directorio/restaurar', { method: 'POST', body: del }); Directorio.load(); } });
+    } catch (e) { toast(e.message); }
+  },
 };
 
 /* ---------------- Cuenta de Instagram ---------------- */

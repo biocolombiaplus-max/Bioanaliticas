@@ -10,6 +10,8 @@ const usuarios = require('./usuarios');
 const remitentes = require('./remitentes');
 const oficina = require('./oficina');
 const agendaMod = require('./agenda');
+const directorio = require('./directorio');
+const QRCode = require('qrcode');
 const equipoMod = require('./equipo');
 const { revisar: revisarAntispam } = require('./antispam');
 const mailer = require('./mailer');
@@ -120,6 +122,30 @@ app.post('/baja/:token', wrap(async (req, res) => {
   // También atiende la baja en un clic de Gmail/Outlook (List-Unsubscribe-Post).
   await mailer.darDeBaja(req.params.token);
   res.send(bajaPage('Listo, te diste de baja', 'Ya no recibirás más correos nuestros. ¡Gracias por acompañarnos!'));
+}));
+
+// ---------------- Inscripción pública a la red (con autorización de datos) ----------------
+const urlRegistro = () => mailer.cfg().baseUrl + '/registro';
+app.get('/registro', (req, res) => res.sendFile(require('path').join(__dirname, '..', 'public', 'registro.html')));
+app.get('/api/publico/registro', (req, res) => res.json({ municipios: Object.keys(directorio.MUNICIPIOS), tipos: directorio.TIPOS, autorizacion: directorio.TEXTO_AUTORIZACION, organizacion: process.env.ORG_NAME || 'Alcaldía de Villa del Rosario' }));
+app.post('/api/publico/registro', wrap(async (req, res) => {
+  const key = 'registro:' + (req.ip || 'x');
+  if (Number(await kv.get(key) || 0) >= 15) return res.status(429).json({ error: 'Recibimos muchas inscripciones desde esta conexión. Intenta más tarde.' });
+  await kv.incr(key, 3600);
+  let reg;
+  try { reg = await directorio.inscribir(req.body || {}, req.ip); } catch (e) { return res.status(400).json({ error: e.message }); }
+  // Quien autoriza y deja correo pasa a la base de correos, en la lista de la red.
+  if (reg.correo && reg.recibirInfo) {
+    const ex = await mailer.contacts.get(reg.correo);
+    if (!ex || !ex.baja) {
+      await mailer.contacts.put(reg.correo, {
+        ...(ex || {}), email: reg.correo, nombre: (ex && ex.nombre) || reg.contacto || reg.nombre, ciudad: reg.municipio, telefono: reg.telefono || (reg.whatsapp ? '+' + reg.whatsapp : ''),
+        organizacion: reg.contacto ? reg.nombre : (ex && ex.organizacion) || '', autorizado: true, fuente: 'Formulario de inscripción',
+        listas: [...new Set([...((ex && ex.listas) || []), 'Red Villa del Rosario'])], creado: (ex && ex.creado) || new Date().toISOString(),
+      });
+    }
+  }
+  res.json({ ok: true, nombre: reg.contacto || reg.nombre });
 }));
 
 // ---------------- Tareas programadas (Vercel Cron o servicio externo) ----------------
@@ -257,6 +283,64 @@ app.get('/api/contactos/exportar', wrap(async (req, res) => {
 }));
 
 app.delete('/api/contactos/:email', wrap(async (req, res) => { await mailer.contacts.del(req.params.email); res.json({ ok: true }); }));
+
+// ---------------- Directorio (Google Maps, inscripciones, Instagram) ----------------
+app.get('/api/directorio', wrap(async (req, res) => {
+  const r = await directorio.listar(req.query);
+  res.json({
+    ...r, items: r.items.slice(0, 600),
+    municipios: Object.keys(directorio.MUNICIPIOS), tipos: directorio.TIPOS, estados: directorio.ESTADOS, fuentes: directorio.FUENTES, categorias: directorio.CATEGORIAS,
+    google: directorio.googleListo(), consultasMes: await directorio.consultasMes(), instagram: ig.configured(),
+    registro: urlRegistro(), mensaje: await directorio.mensaje(),
+  });
+}));
+app.post('/api/directorio', wrap(async (req, res) => {
+  try { res.json(await directorio.guardar(req.body || {})); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/directorio/restaurar', wrap(async (req, res) => res.json(await directorio.restaurar(req.body))));
+app.post('/api/directorio/mensaje', wrap(async (req, res) => res.json({ mensaje: await directorio.guardarMensaje(req.body.mensaje) })));
+app.post('/api/directorio/google', wrap(async (req, res) => {
+  try { res.json(await directorio.buscarGoogle(req.body || {})); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/directorio/instagram', wrap(async (req, res) => {
+  if (!ig.configured()) return res.status(400).json({ error: 'Conecta la cuenta de Instagram (IG_ACCESS_TOKEN e IG_USER_ID) para consultar perfiles profesionales.' });
+  const usuarios_ = [...new Set(String(req.body.usuarios || '').split(/[\s,;]+/).map(directorio.usuarioIg).filter(Boolean))].slice(0, 25);
+  if (!usuarios_.length) return res.status(400).json({ error: 'Escribe uno o varios usuarios de Instagram (ej.: @negocio).' });
+  const out = [];
+  for (const u of usuarios_) {
+    try {
+      const p = await ig.perfilProfesional(u);
+      const enlaces = [p.website, ...(String(p.biography || '').match(/https?:\/\/\S+|wa\.me\/\d+/gi) || [])].filter(Boolean);
+      const wa = enlaces.map(e => (e.match(/wa\.me\/(\d{10,13})|api\.whatsapp\.com\/send\?phone=(\d{10,13})/i) || []).slice(1).find(Boolean)).find(Boolean) || '';
+      out.push({ ok: true, usuario: p.username, nombre: p.name || p.username, biografia: p.biography || '', web: p.website || '', seguidores: p.followers_count || 0, publicaciones: p.media_count || 0, foto: p.profile_picture_url || '', whatsapp: wa, municipio: directorio.municipioDe(`${p.biography || ''} ${p.name || ''}`) });
+    } catch (e) { out.push({ ok: false, usuario: u, error: /not found|Invalid user|cannot be found|does not exist/i.test(e.message) ? 'No es una cuenta profesional pública o no existe.' : e.message }); }
+  }
+  res.json(out);
+}));
+app.post('/api/directorio/instagram/guardar', wrap(async (req, res) => {
+  const p = req.body || {};
+  const todos = await directorio.dir.all();
+  const prev = todos.find(x => x.instagram && x.instagram === directorio.usuarioIg(p.usuario));
+  const x = directorio.normalizar({ tipo: p.tipo || 'creador', nombre: p.nombre, categoria: p.categoria, municipio: p.municipio, instagram: p.usuario, web: p.web, whatsapp: p.whatsapp, notas: p.biografia }, prev || {});
+  Object.assign(x, { id: prev ? prev.id : 'i' + require('./store').id(8), fuente: prev ? prev.fuente : 'instagram', consentimiento: prev ? prev.consentimiento : false, seguidores: Number(p.seguidores) || 0, creado: prev ? prev.creado : new Date().toISOString(), actualizado: new Date().toISOString() });
+  await directorio.dir.put(x.id, x);
+  res.json(x);
+}));
+app.get('/api/directorio/exportar', wrap(async (req, res) => {
+  const r = await directorio.listar(req.query);
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="directorio-${(req.query.municipio || 'area-metropolitana').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv"` });
+  res.send(directorio.csv(r.items));
+}));
+app.get('/api/directorio/qr.png', wrap(async (req, res) => {
+  res.set({ 'Content-Type': 'image/png', 'Content-Disposition': 'inline; filename="qr-inscripcion.png"' });
+  res.send(await QRCode.toBuffer(urlRegistro(), { width: 900, margin: 2, color: { dark: '#2a2672', light: '#ffffff' } }));
+}));
+app.post('/api/directorio/:id/estado', wrap(async (req, res) => {
+  try { res.json(await directorio.marcar(req.params.id, req.body.estado)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.delete('/api/directorio/:id', wrap(async (req, res) => {
+  try { res.json(await directorio.eliminar(req.params.id)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
 
 // ---- Campañas ----
 const CAMPOS = ['nombre', 'asunto', 'preheader', 'titular', 'mensaje', 'botonTexto', 'botonUrl', 'boton2Texto', 'boton2Url', 'notaBoton', 'cierre', 'motivo', 'remitenteNombre', 'remitenteId', 'tipo', 'destino', 'segmento', 'imagenUrl', 'imagenAlt', 'logoUrl'];

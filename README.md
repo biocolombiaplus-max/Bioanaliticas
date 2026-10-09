@@ -108,3 +108,10 @@ src/antispam.js        Revisión de entregabilidad del correo
 public/vendor/         Cliente de Vercel Blob empaquetado (esbuild) para subir videos grandes
 public/                Página de inicio, panel e informe imprimible
 ```
+
+## Directorio y red
+
+- **Formulario público** en `/registro`: negocios, emprendedores y creadores se inscriben con municipio, WhatsApp, correo y redes, y autorizan el tratamiento de datos (Ley 1581). Quien deja correo pasa a la lista "Red Villa del Rosario" de Bases de datos. El panel muestra el enlace, el código QR y un botón para compartir.
+- **Google Maps** (API oficial Places API New, variable `GOOGLE_MAPS_API_KEY`): busca por categoría y municipio o hace un barrido completo de categorías; guarda nombre, dirección, teléfono, web, calificación y municipio. Estos negocios no reciben correos masivos; se les puede llamar o invitar por WhatsApp a inscribirse, uno por uno.
+- **Instagram** (API oficial, Business Discovery): datos públicos de cuentas profesionales cuyo usuario ya conoces.
+- Descarga en Excel (CSV) con los filtros aplicados.

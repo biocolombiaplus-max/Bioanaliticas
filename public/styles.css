@@ -429,3 +429,27 @@ input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .firma-prev{display:inline-block;min-width:220px;max-width:100%;text-align:center;padding:10px 16px 4px;border:1px solid var(--line);border-radius:14px;background:#fff}
 .firma-prev .firma-mini{margin:0 auto -4px;max-height:90px}
 .firma-prev .linea{border-top:1px solid var(--ink);margin:2px 0 6px}
+
+/* Directorio */
+.dr-filtros{display:grid;grid-template-columns:2fr repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.dr-filtros input,.dr-filtros select{margin:0}
+.dr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dr{border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.dr .h{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.dr .h b{font-size:14.5px;line-height:1.3;overflow-wrap:anywhere}
+.dr .m{font-size:12.5px;color:var(--ink2);overflow-wrap:anywhere}
+.dr .acc{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center}
+.dr .acc a,.dr .acc button{font-size:12px;padding:6px 11px}
+.dr .acc select{width:auto;margin:0;padding:6px 28px 6px 10px;font-size:12px;border-radius:999px}
+.btn.wa{background:#25d366;color:#fff}
+.dr-src{font-size:10.5px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--soft);color:var(--navy);white-space:nowrap}
+.dr-src.formulario{background:#e6f4ea;color:var(--good)}
+.dr-src.google{background:#e8f0fe;color:#1a56c4}
+.dr-src.instagram{background:#fdeef6;color:#b0306f}
+.qr-box{display:flex;gap:14px;align-items:center}
+.qr-box img{width:120px;height:120px;border-radius:12px;border:1px solid var(--line);flex:none}
+.ig-res{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding:10px 0}
+.ig-res img{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;background:var(--soft)}
+.ig-res .b{flex:1;min-width:0}
+.ig-res select{width:auto;margin:6px 0 0;padding:6px 28px 6px 10px;font-size:12px}
+@media (max-width:860px){.dr-filtros{grid-template-columns:1fr 1fr}.dr-filtros input{grid-column:1/-1}.dr-grid{grid-template-columns:1fr}.qr-box{flex-direction:column;align-items:flex-start}}

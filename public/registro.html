@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Únete a la red · Villa del Rosario y área metropolitana</title>
+<meta name="description" content="Inscribe tu negocio, emprendimiento o cuenta de creador de contenido y recibe invitaciones a la Feria de la Uva, eventos y oportunidades de Villa del Rosario y el área metropolitana.">
+<meta property="og:title" content="Únete a la Red de Villa del Rosario">
+<meta property="og:description" content="Negocios, emprendedores y creadores de Villa del Rosario, Cúcuta, Los Patios y el área metropolitana.">
+<meta property="og:image" content="/img/logo.png">
+<meta name="theme-color" content="#2a2672">
+<link rel="icon" href="/img/logo_sm.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#2a2672;--navy2:#1b1850;--ink:#1f1d3d;--ink2:#55537a;--muted:#8a88a3;--line:#e7e5f3;--soft:#f5f4fb;--orange:#e0661f;--green:#2e8540}
+  *{box-sizing:border-box}
+  html,body{margin:0;overflow-x:hidden;overflow-x:clip}
+  body{font-family:Poppins,system-ui,sans-serif;color:var(--ink);background:var(--soft);font-size:15px;line-height:1.5}
+  .hero{background:linear-gradient(155deg,#16134a 0%,#2a2672 55%,#4a43b0 100%);color:#fff;padding:28px 18px 70px;text-align:center;position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;width:320px;height:320px;border-radius:50%;background:rgba(242,107,33,.16);right:-120px;top:-120px}
+  .hero::after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;background:rgba(92,198,226,.12);left:-90px;bottom:-110px}
+  .hero img{width:150px;background:#fff;border-radius:18px;padding:8px 10px;position:relative}
+  .hero .k{letter-spacing:.24em;text-transform:uppercase;font-size:11px;color:#ffd9bf;font-weight:600;margin-top:18px}
+  .hero h1{font-family:Fraunces,Georgia,serif;font-size:32px;line-height:1.1;margin:8px auto 10px;max-width:560px;position:relative}
+  .hero p{opacity:.88;max-width:520px;margin:0 auto;position:relative}
+  .bandas{height:7px;background:linear-gradient(90deg,#5cc6e2 0 25%,#6ab43e 25% 50%,#f26b21 50% 75%,#ffd400 75%)}
+  main{max-width:620px;margin:-48px auto 40px;padding:0 14px;position:relative}
+  .card{background:#fff;border-radius:22px;padding:22px 18px;box-shadow:0 14px 40px rgba(31,29,61,.12)}
+  .ben{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+  .ben div{background:var(--soft);border-radius:14px;padding:10px 8px;text-align:center;font-size:12px;color:var(--ink2)}
+  .ben b{display:block;font-size:20px}
+  h2{font-size:15px;margin:22px 0 8px;color:var(--navy)}
+  h2:first-of-type{margin-top:0}
+  label{display:block;font-size:13px;font-weight:600;color:var(--ink2);margin:12px 0 5px}
+  label small{font-weight:400;color:var(--muted)}
+  input,select,textarea{width:100%;min-width:0;font:inherit;font-size:16px;border:1.5px solid var(--line);border-radius:12px;padding:12px 13px;background:#fff;color:var(--ink);-webkit-appearance:none;appearance:none}
+  select{background-image:linear-gradient(45deg,transparent 50%,var(--ink2) 50%),linear-gradient(135deg,var(--ink2) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+  input:focus,select:focus{outline:0;border-color:var(--navy);box-shadow:0 0 0 3px rgba(42,38,114,.12)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chips label{margin:0;font-weight:500;color:var(--ink);border:1.5px solid var(--line);border-radius:999px;padding:8px 13px;cursor:pointer;font-size:13.5px}
+  .chips input{position:absolute;opacity:0;width:1px;height:1px}
+  .chips label:has(input:checked){background:var(--navy);border-color:var(--navy);color:#fff}
+  .check{display:flex;gap:10px;align-items:flex-start;font-weight:400;color:var(--ink);font-size:13.5px;margin-top:14px;cursor:pointer}
+  .check input{width:22px;height:22px;flex:none;margin-top:1px;-webkit-appearance:auto;appearance:auto;accent-color:var(--navy)}
+  .legal{font-size:12px;color:var(--muted);background:var(--soft);border-radius:12px;padding:10px 12px;margin-top:8px}
+  .btn{display:block;width:100%;border:0;border-radius:999px;padding:15px;font:inherit;font-size:16px;font-weight:700;background:var(--orange);color:#fff;cursor:pointer;margin-top:20px;box-shadow:0 8px 20px rgba(224,102,31,.3)}
+  .btn:disabled{opacity:.6}
+  .err{color:#b42318;background:#fdecea;border-radius:12px;padding:10px 12px;margin-top:14px;font-size:14px;display:none}
+  .trampa{position:absolute;left:-5000px}
+  .ok{text-align:center;padding:16px 4px}
+  .ok .ic{width:74px;height:74px;border-radius:50%;background:#e6f4ea;color:var(--green);display:grid;place-items:center;font-size:38px;margin:0 auto 12px}
+  .ok h2{font-family:Fraunces,Georgia,serif;font-size:26px;color:var(--navy)}
+  .wa{display:inline-flex;gap:8px;align-items:center;justify-content:center;background:#25d366;color:#fff;text-decoration:none;font-weight:700;border-radius:999px;padding:13px 20px;margin-top:14px}
+  footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 30px}
+  @media (max-width:480px){.two{grid-template-columns:1fr}.hero h1{font-size:27px}}
+</style>
+</head>
+<body>
+<div class="hero">
+  <img src="/img/logo.png" alt="">
+  <div class="k">Villa del Rosario y área metropolitana</div>
+  <h1>Únete a la Red de negocios y creadores</h1>
+  <p>Inscribe tu negocio, emprendimiento o cuenta de creador y recibe invitaciones a la Feria de la Uva, eventos, ferias y oportunidades para darte a conocer.</p>
+</div>
+<div class="bandas"></div>
+<main>
+  <div class="card" id="caja">
+    <div class="ben"><div><b>🍇</b>Invitaciones a la Feria</div><div><b>📣</b>Visibilidad en eventos</div><div><b>🤝</b>Convocatorias y alianzas</div></div>
+    <form id="f" novalidate>
+      <h2>¿Quién eres?</h2>
+      <div class="chips" id="tipos"></div>
+      <label for="nombre">Nombre del negocio, marca o cuenta *</label>
+      <input id="nombre" name="nombre" required maxlength="120" autocomplete="organization" placeholder="Ej.: Panadería La Uva">
+      <div class="two">
+        <div><label for="contacto">Tu nombre</label><input id="contacto" name="contacto" maxlength="80" autocomplete="name" placeholder="Nombre y apellido"></div>
+        <div><label for="categoria">Actividad o categoría</label><input id="categoria" name="categoria" maxlength="80" placeholder="Ej.: comida, moda, salud" list="cats"></div>
+      </div>
+      <datalist id="cats"><option>Restaurante</option><option>Cafetería</option><option>Panadería</option><option>Hotel</option><option>Tienda de ropa</option><option>Belleza y estética</option><option>Salud</option><option>Tecnología</option><option>Artesanías</option><option>Productor de uva</option><option>Eventos</option><option>Fotografía</option><option>Turismo</option><option>Educación</option></datalist>
+
+      <h2>¿Dónde estás?</h2>
+      <div class="two">
+        <div><label for="municipio">Municipio *</label><select id="municipio" name="municipio" required><option value="">Elige…</option></select></div>
+        <div><label for="barrio">Barrio</label><input id="barrio" name="barrio" maxlength="80"></div>
+      </div>
+      <label for="direccion">Dirección <small>(si tienes local)</small></label>
+      <input id="direccion" name="direccion" maxlength="200" autocomplete="street-address">
+
+      <h2>¿Cómo te contactamos?</h2>
+      <div class="two">
+        <div><label for="whatsapp">WhatsApp</label><input id="whatsapp" name="whatsapp" inputmode="tel" autocomplete="tel" placeholder="300 123 4567"></div>
+        <div><label for="correo">Correo</label><input id="correo" name="correo" type="email" inputmode="email" autocomplete="email" placeholder="tucorreo@gmail.com"></div>
+      </div>
+      <div class="two">
+        <div><label for="instagram">Instagram</label><input id="instagram" name="instagram" placeholder="@tucuenta" autocapitalize="off"></div>
+        <div><label for="facebook">Facebook</label><input id="facebook" name="facebook" placeholder="Página o perfil" autocapitalize="off"></div>
+      </div>
+      <div class="two">
+        <div><label for="tiktok">TikTok</label><input id="tiktok" name="tiktok" placeholder="@tucuenta" autocapitalize="off"></div>
+        <div><label for="web">Sitio web</label><input id="web" name="web" inputmode="url" placeholder="www.tunegocio.com" autocapitalize="off"></div>
+      </div>
+      <div class="trampa" aria-hidden="true"><label>No llenar<input name="sitio" tabindex="-1" autocomplete="off"></label></div>
+
+      <label class="check"><input type="checkbox" name="recibir" value="si" checked> Quiero recibir por WhatsApp o correo invitaciones a eventos, ferias y convocatorias.</label>
+      <label class="check"><input type="checkbox" name="autorizo" value="si" required> <span>Autorizo el tratamiento de mis datos personales. *</span></label>
+      <div class="legal" id="legal"></div>
+      <div class="err" id="err"></div>
+      <button class="btn" type="submit" id="enviar">Inscribirme a la red</button>
+    </form>
+  </div>
+</main>
+<footer id="pie"></footer>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+fetch('/api/publico/registro').then(r => r.json()).then(d => {
+  $('#tipos').innerHTML = Object.entries(d.tipos).filter(([k]) => k !== 'otro').map(([k, v], i) => `<label><input type="radio" name="tipo" value="${k}" ${i === 0 ? 'checked' : ''}>${esc(v)}</label>`).join('');
+  $('#municipio').innerHTML += d.municipios.map(m => `<option>${esc(m)}</option>`).join('');
+  $('#legal').textContent = d.autorizacion;
+  $('#pie').textContent = `${d.organizacion} · Oficina de Prensa. Tus datos se usan solo para lo que autorizas y puedes pedir su eliminación cuando quieras.`;
+});
+$('#f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const err = $('#err'); err.style.display = 'none';
+  const d = Object.fromEntries(new FormData(e.target));
+  const falta = !d.nombre ? 'Escribe el nombre de tu negocio o cuenta.' : !d.municipio ? 'Elige tu municipio.' : !d.whatsapp && !d.correo ? 'Déjanos tu WhatsApp o tu correo.' : !d.autorizo ? 'Debes autorizar el tratamiento de tus datos para inscribirte.' : '';
+  if (falta) { err.textContent = falta; err.style.display = 'block'; return; }
+  const b = $('#enviar'); b.disabled = true; b.textContent = 'Enviando…';
+  try {
+    const r = await fetch('/api/publico/registro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'No se pudo enviar. Intenta de nuevo.');
+    const txt = encodeURIComponent('Me inscribí en la Red de negocios y creadores de Villa del Rosario y el área metropolitana. Inscríbete tú también: ' + location.origin + '/registro');
+    $('#caja').innerHTML = `<div class="ok"><div class="ic">✓</div><h2>¡Bienvenido(a) a la red, ${esc(j.nombre)}!</h2><p>Ya quedaste inscrito(a). Te contaremos sobre la Feria de la Uva, eventos y oportunidades en Villa del Rosario y el área metropolitana.</p><a class="wa" href="https://wa.me/?text=${txt}" target="_blank" rel="noopener">Invitar a otro negocio por WhatsApp</a></div>`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (x) { err.textContent = x.message; err.style.display = 'block'; b.disabled = false; b.textContent = 'Inscribirme a la red'; }
+});
+</script>
+</body>
+</html>
