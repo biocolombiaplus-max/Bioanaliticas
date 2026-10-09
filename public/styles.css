@@ -426,3 +426,6 @@ input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .firma-hint{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);pointer-events:none;font-size:14px}
 .firma-pad::after{content:"";position:absolute;left:8%;right:8%;bottom:22%;border-bottom:1px solid #d9d6ee;pointer-events:none}
 .firma-mini{max-width:220px;max-height:80px;display:block;margin:6px 0}
+.firma-prev{display:inline-block;min-width:220px;max-width:100%;text-align:center;padding:10px 16px 4px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.firma-prev .firma-mini{margin:0 auto -4px;max-height:90px}
+.firma-prev .linea{border-top:1px solid var(--ink);margin:2px 0 6px}

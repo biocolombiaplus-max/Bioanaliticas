@@ -94,7 +94,7 @@ const App = {
     $('#delay-lbl').textContent = App.estado.delay;
     $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) App.go(b.dataset.v); });
     addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && !$('#v-' + v)?.classList.contains('on')) App.go(v); });
-    if (location.hash === '#firma') { App.go('ajustes'); setTimeout(Firma.abrir, 300); } else App.go(location.hash.slice(1) || 'inicio');
+    if (location.hash === '#firma') { const q = new URLSearchParams(location.search); Firma.volverA = q.get('volver') && q.get('volver').startsWith('/informe') ? q.get('volver') : null; App.go('ajustes'); setTimeout(Firma.abrir, 300); } else App.go(location.hash.slice(1) || 'inicio');
     if (App.estado.bienvenida) App.bienvenida(App.estado.bienvenida);
     App.badge();
     if (App.estado.rol !== 'diseno') { App.watchQueue(); setInterval(App.watchQueue, 20000); }
@@ -172,7 +172,7 @@ const App = {
       line('Base de datos', e.almacenamiento === 'redis' || !e.vercel, e.almacenamiento === 'redis' ? 'Upstash Redis conectado.' : 'Archivo local (modo desarrollo).', 'Conecta Upstash Redis desde Vercel → Storage para guardar la información.') +
       line('Inteligencia artificial (Claude)', e.ia, 'Estudio de contenidos y lectura ejecutiva activos.', 'Agrega ANTHROPIC_API_KEY para activar el estudio de contenidos.') +
       line('Imágenes y videos', e.imagenes, e.archivos === 'cloudinary' ? 'Cloudinary conectado.' : e.archivos === 'blob' ? 'Vercel Blob conectado.' : 'Carpeta local (modo desarrollo).', 'Conecta Cloudinary: agrega la variable CLOUDINARY_URL en Vercel.') +
-      line('Envío de correos (SMTP)', e.smtp, `Remitente: ${esc(e.remitenteNombre)} &lt;${esc(e.remitente)}&gt;`, 'Modo prueba: los correos se generan pero no salen. Configura SMTP_HOST, SMTP_USER, SMTP_PASS y FROM_EMAIL.') +
+      line('Envío de correos', e.smtp, `${(e.remitentes || []).length} cuenta(s) lista(s) para enviar.`, 'Modo prueba: los correos se generan pero no salen. Agrega una cuenta (por ejemplo Gmail) en "Correos para enviar".') +
       line('Instagram', e.instagram, 'API oficial de Instagram conectada.', 'Mostrando datos de demostración. Configura IG_ACCESS_TOKEN e IG_USER_ID.') +
       line('Envío automático', e.cron, 'Un servicio programado mantiene el envío aunque el panel esté cerrado.', 'Opcional: define CRON_SECRET y programa una llamada cada minuto a /api/cron/cola (ver README).') +
       line('Dirección pública', e.baseUrlPublica, esc(e.baseUrl), `Ahora es ${esc(e.baseUrl)}. Define BASE_URL con el dominio del panel.`) +
@@ -1025,6 +1025,26 @@ const Equipo = {
 
 /* ---------------- Firma para los informes ---------------- */
 const Firma = {
+  // Tarjeta de Ajustes: vista previa con botones de editar y eliminar.
+  async estado() {
+    const p = await api('/api/perfil').catch(() => null);
+    if (!p || !$('#firma-estado')) return;
+    $('#firma-acc').innerHTML = p.firma
+      ? '<button class="btn sm alt" type="button" onclick="Firma.abrir()">✎ Editar</button><button class="btn sm danger" type="button" onclick="Firma.eliminar()">🗑 Eliminar</button>'
+      : '<button class="btn sm hot" type="button" onclick="Firma.abrir()">✍ Firmar</button>';
+    $('#firma-estado').innerHTML = p.firma
+      ? `<div class="firma-prev"><img src="${p.firma}" alt="Firma" class="firma-mini"><div class="linea"></div><b>${esc(p.nombreCompleto || p.nombre)}</b><div class="small muted">${esc(p.cargo || '')}</div></div>`
+      : '<p class="muted">Aún no has agregado tu firma. Puedes dibujarla con el dedo o subir una foto de tu firma en papel.</p>';
+  },
+  async eliminar() {
+    const p = await api('/api/perfil');
+    if (!(await confirmar({ titulo: '¿Eliminar tu firma?', texto: 'Los informes quedarán con la línea en blanco para firmar a mano. Tu nombre y cargo se conservan.' }))) return;
+    try {
+      await api('/api/perfil', { method: 'POST', body: { firma: '' } });
+      Firma.estado();
+      toast('Firma eliminada', { texto: 'Deshacer', fn: async () => { await api('/api/perfil', { method: 'POST', body: { firma: p.firma } }); Firma.estado(); toast('Firma recuperada ✓'); } });
+    } catch (e) { toast(e.message); }
+  },
   async abrir() {
     const p = await api('/api/perfil');
     Firma.dato = p.firma || '';
@@ -1033,7 +1053,7 @@ const Firma = {
         <div class="grid g2"><div><label>Nombre completo</label><input type="text" name="nombreCompleto" value="${esc(p.nombreCompleto || p.nombre || '')}" placeholder="Ej.: Ligia …"></div><div><label>Cargo</label><input type="text" name="cargo" value="${esc(p.cargo || 'Jefe de Prensa')}"></div></div>
         <label>Firma</label>
         <div class="firma-pad"><canvas id="fi-canvas" width="900" height="300" aria-label="Espacio para firmar"></canvas><span class="firma-hint" id="fi-hint">Firma aquí con el dedo o el mouse</span></div>
-        <div class="row" style="margin-top:8px"><button class="btn sm alt" type="button" onclick="Firma.limpiar()">Borrar</button><label class="btn sm alt" style="margin:0">Subir imagen de la firma<input type="file" accept="image/*" hidden onchange="Firma.subir(this)"></label></div>
+        <div class="row" style="margin-top:8px"><button class="btn sm alt" type="button" onclick="Firma.limpiar()">↺ Borrar y volver a firmar</button><label class="btn sm alt" style="margin:0">Subir imagen de la firma<input type="file" accept="image/*" hidden onchange="Firma.subir(this)"></label></div>
         <h3>¿Quién recibe el informe?</h3>
         <div class="grid g2"><div><label>Nombre</label><input type="text" name="recibeNombre" value="${esc(p.recibeNombre || '')}" placeholder="Ej.: Despacho del Alcalde"></div><div><label>Cargo</label><input type="text" name="recibeCargo" value="${esc(p.recibeCargo || '')}" placeholder="Ej.: Alcalde municipal"></div></div>
         <div class="row" style="margin-top:16px"><button class="btn hot" type="submit">Guardar firma</button></div>
@@ -1074,7 +1094,13 @@ const Firma = {
     ev.preventDefault();
     const b = Object.fromEntries(new FormData(ev.target));
     b.firma = Firma.trazo ? Firma.exportar() : Firma.dato;
-    try { await api('/api/perfil', { method: 'POST', body: b }); Modal.close(); toast('Firma guardada ✓ Aparecerá en tus informes.'); if (App.permitido('ajustes') && $('#v-ajustes').classList.contains('on')) Ajustes.load(); } catch (e) { toast(e.message); }
+    try {
+      await api('/api/perfil', { method: 'POST', body: b });
+      Modal.close();
+      toast(b.firma ? 'Firma guardada ✓ Aparecerá en tus informes.' : 'Datos guardados. Los informes quedarán sin firma.');
+      Firma.estado();
+      if (Firma.volverA) { const u = Firma.volverA; Firma.volverA = null; setTimeout(() => { location.href = u; }, 700); }
+    } catch (e) { toast(e.message); }
     return false;
   },
 };
@@ -1255,7 +1281,7 @@ const Agenda = {
 const Ajustes = {
   async load() {
     App.ajustes();
-    api('/api/perfil').then(p => { $('#firma-estado').innerHTML = p.firma ? `<img src="${p.firma}" alt="Firma" class="firma-mini"><div class="small muted">${esc(p.nombreCompleto || p.nombre)} · ${esc(p.cargo || '')}</div>` : '<p class="muted">Aún no has agregado tu firma.</p>'; }).catch(() => {});
+    Firma.estado();
     const [us, rs] = await Promise.all([api('/api/usuarios'), api('/api/remitentes')]);
     App.estado.remitentes = rs;
     Ajustes.us = us; Ajustes.rs = rs;

@@ -79,7 +79,7 @@ function render() {
     <ul class="f r" ${ed('recomendaciones')}>${T.recomendaciones.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
     <div class="lead" ${ed('cierre')}>${esc(T.cierre)}</div>
     <div class="firma">
-      <div><div class="firma-box">${D.firma && D.firma.firma ? `<img class="firma-img" src="${D.firma.firma}" alt="Firma">` : ''}</div><div class="linea"></div><b>${esc((D.firma && D.firma.nombreCompleto) || D.generadoPor)}</b><br>${esc((D.firma && D.firma.cargo) || 'Jefe(a) de Prensa')}<br>${esc(D.organizacion)}</div>
+      <div><div class="firma-box">${D.firma && D.firma.firma && document.getElementById('o-firma').checked ? `<img class="firma-img" src="${D.firma.firma}" alt="Firma">` : ''}</div><div class="linea"></div><b>${esc((D.firma && D.firma.nombreCompleto) || D.generadoPor)}</b><br>${esc((D.firma && D.firma.cargo) || 'Jefe(a) de Prensa')}<br>${esc(D.organizacion)}</div>
       <div><div class="firma-box"></div><div class="linea"></div><b>${esc((D.firma && D.firma.recibeNombre) || 'Recibido')}</b><br>${esc((D.firma && D.firma.recibeCargo) || 'Despacho')}<br>Fecha: ____ / ____ / ________</div>
     </div>
     <p style="font-size:9.5px;color:var(--muted);margin-top:16mm">Fuente: agenda de gestión de la Oficina de Prensa (Sala de Prensa Digital). Las fotografías y enlaces son soporte de las actividades reportadas.</p>
@@ -107,10 +107,12 @@ async function main() {
   D = await api(`/api/agenda/informe?desde=${encodeURIComponent(q.get('desde') || '')}&hasta=${encodeURIComponent(q.get('hasta') || '')}`);
   render();
   if (D.ia) document.getElementById('b-ia').style.display = '';
-  if (!(D.firma && D.firma.firma)) { const f = document.getElementById('b-firma'); f.style.display = ''; }
+  const bf = document.getElementById('b-firma');
+  bf.href = '/app.html?volver=' + encodeURIComponent(location.pathname + location.search) + '#firma';
+  bf.textContent = D.firma && D.firma.firma ? '✎ Cambiar firma' : '✍ Agregar firma';
   document.getElementById('b-equipo').onclick = elegirEquipo;
   avisar(D.textoIA ? 'Este informe usa el texto guardado para este periodo. Puedes editarlo o volver a redactarlo.' : (D.ia ? 'Texto generado automáticamente con las cifras. Usa "Redactar con IA" para una versión más elaborada, o edítalo a mano.' : 'Texto generado automáticamente con las cifras. Puedes editarlo con "Editar textos" antes de descargar el PDF.'));
-  ['o-fotos', 'o-canceladas'].forEach(i => document.getElementById(i).addEventListener('change', () => { if (editando) D.texto = leerTextos(); render(); if (editando) activarEdicion(true); }));
+  ['o-fotos', 'o-canceladas', 'o-firma'].forEach(i => document.getElementById(i).addEventListener('change', () => { if (editando) D.texto = leerTextos(); render(); if (editando) activarEdicion(true); }));
   document.getElementById('b-editar').onclick = async () => {
     if (!editando) { activarEdicion(true); avisar('Haz clic en los textos resaltados para corregirlos. En las listas, cada línea es un punto. Luego pulsa "Guardar textos".'); return; }
     D.texto = leerTextos();
