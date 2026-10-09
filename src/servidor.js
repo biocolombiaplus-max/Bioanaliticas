@@ -197,7 +197,7 @@ app.post('/api/contactos/analizar', uploadBase.single('archivo'), wrap(async (re
   try {
     const rows = await readRows(req.file.buffer, req.file.originalname);
     const existentes = new Map((await mailer.contacts.all()).map(c => [c.email, c]));
-    res.json({ archivo: req.file.originalname, ...perfil(rows, existentes) });
+    res.json({ archivo: req.file.originalname, ...(await perfil(rows, existentes)) });
   } catch (e) { res.status(400).json({ error: e.message }); }
 }));
 
@@ -205,7 +205,7 @@ app.post('/api/contactos/importar', uploadBase.single('archivo'), wrap(async (re
   if (!req.file) return res.status(400).json({ error: 'Sube un archivo de Excel (.xlsx) o CSV.' });
   if (req.body.confirmo !== 'si') return res.status(400).json({ error: 'Debes confirmar que las personas autorizaron recibir correos.' });
   let parsed;
-  try { parsed = parseContacts(await readRows(req.file.buffer, req.file.originalname)); } catch (e) { return res.status(400).json({ error: e.message }); }
+  try { parsed = await parseContacts(await readRows(req.file.buffer, req.file.originalname)); } catch (e) { return res.status(400).json({ error: e.message }); }
   const lista = String(req.body.lista || '').trim() || req.file.originalname.replace(/\.[^.]+$/, '');
   const existing = new Map((await mailer.contacts.all()).map(c => [c.email, c]));
   let nuevos = 0, actualizados = 0, duplicadosArchivo = 0, conBaja = 0;
@@ -225,7 +225,30 @@ app.post('/api/contactos/importar', uploadBase.single('archivo'), wrap(async (re
     }
   }
   await mailer.contacts.putMany(write);
-  res.json({ nuevos, actualizados, duplicadosArchivo, invalidos: parsed.invalid, sinAutorizacion: parsed.sinAutorizacion, conBaja, lista });
+  res.json({ nuevos, actualizados, duplicadosArchivo, invalidos: parsed.invalid, descartados: parsed.descartados, sinAutorizacion: parsed.sinAutorizacion, conBaja, lista });
+}));
+
+// Descargas en CSV (abre bien en Excel): la base limpia de un archivo, o toda la base guardada.
+const csvCelda = v => { const t = String(v ?? ''); return /[";\n,]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+function enviarCsv(res, nombre, filas) {
+  const cols = ['email', 'nombre', 'ciudad', 'telefono', 'organizacion', 'cargo', 'listas', 'estado'];
+  const cuerpo = [['Correo', 'Nombre', 'Municipio', 'Teléfono', 'Organización', 'Cargo', 'Listas', 'Estado'].join(';'), ...filas.map(f => cols.map(k => csvCelda(Array.isArray(f[k]) ? f[k].join(', ') : f[k])).join(';'))].join('\r\n');
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nombre}"` });
+  res.send('\uFEFF' + cuerpo);
+}
+app.post('/api/contactos/limpia', uploadBase.single('archivo'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Sube el archivo.' });
+  try {
+    const r = await parseContacts(await readRows(req.file.buffer, req.file.originalname));
+    const vistos = new Set();
+    const filas = r.contacts.filter(c => !vistos.has(c.email) && vistos.add(c.email)).map(c => ({ ...c, estado: c.institucional ? 'Correo genérico' : 'Listo' }));
+    enviarCsv(res, req.file.originalname.replace(/\.[^.]+$/, '') + '-limpia.csv', filas);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.get('/api/contactos/exportar', wrap(async (req, res) => {
+  const filas = (await mailer.contacts.all()).sort((a, b) => (a.ciudad || 'zz').localeCompare(b.ciudad || 'zz', 'es') || (a.nombre || '').localeCompare(b.nombre || '', 'es'))
+    .map(c => ({ ...c, estado: c.baja ? 'Se dio de baja' : 'Activo' }));
+  enviarCsv(res, `contactos-${new Date().toISOString().slice(0, 10)}.csv`, filas);
 }));
 
 app.delete('/api/contactos/:email', wrap(async (req, res) => { await mailer.contacts.del(req.params.email); res.json({ ok: true }); }));

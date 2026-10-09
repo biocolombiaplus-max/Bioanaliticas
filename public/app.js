@@ -579,6 +579,15 @@ const Contacts = {
           kpi('Listos para enviar', nf(Math.max(0, p.listosParaEnviar)), `${nf(p.yaExisten)} ya estaban en la base`, C.orange),
           kpi('Con nombre', nf(p.conNombre), `${nf(p.conCiudad)} con municipio · ${nf(p.conTelefono)} con teléfono`, C.blue),
         ].join('')}</div>
+        <div class="card" style="margin-top:14px;box-shadow:none;background:linear-gradient(135deg,#f3fbf5,#f6f4ff)"><div class="card-h"><h3 style="margin:0">✓ Limpieza automática</h3><button class="btn sm alt" type="button" onclick="Contacts.descargarLimpia()">Descargar base limpia (Excel/CSV)</button></div>
+          <ul class="checks">
+            <li>${nf(p.limpieza.correosCorregidos)} correos con errores de escritura corregidos${p.limpieza.ejemplos.length ? ` (ej.: <s>${esc(p.limpieza.ejemplos[0].antes)}</s> → <b>${esc(p.limpieza.ejemplos[0].despues)}</b>)` : ''}</li>
+            <li>${nf(p.limpieza.nombresOrdenados)} nombres ordenados (mayúsculas y tildes: MARIA GOMEZ → María Gómez)</li>
+            <li>${nf(p.limpieza.ciudadesUnificadas)} municipios unificados (cucuta → Cúcuta)</li>
+            <li>${nf(p.limpieza.telefonosFormateados)} teléfonos con formato +57</li>
+            ${p.limpieza.sinBuzon ? `<li class="aviso">${nf(p.limpieza.sinBuzon)} correos de dominios que no reciben correo, descartados${p.limpieza.ejemplosSinBuzon.length ? ` (ej.: ${esc(p.limpieza.ejemplosSinBuzon[0])})` : ''}</li>` : '<li>Todos los dominios reciben correo</li>'}
+            ${p.limpieza.desechables + p.limpieza.prueba ? `<li class="aviso">${nf(p.limpieza.desechables + p.limpieza.prueba)} correos temporales o de prueba descartados</li>` : ''}
+          </ul></div>
         ${p.alertas.length ? `<div class="demo-banner" style="margin-top:14px"><b>Para tener en cuenta:</b><ul class="f" style="margin-top:6px">${p.alertas.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
         <div class="grid g3" style="margin-top:14px">
           <div><h3>Columnas reconocidas</h3><ul class="checks">${p.columnas.map(c => `<li class="${c.campo ? '' : 'aviso'}">${esc(c.nombre)} → ${c.campo ? `<b>${esc(c.campo)}</b>` : 'no se usará'}</li>`).join('')}</ul></div>
@@ -595,6 +604,15 @@ const Contacts = {
       box.scrollIntoView({ behavior: 'smooth' });
     } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
     return false;
+  },
+  async descargarLimpia() {
+    try {
+      const fd = new FormData(); fd.append('archivo', Contacts.file, Contacts.file.name);
+      const r = await fetch('/api/contactos/limpia', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'No se pudo descargar');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob());
+      a.download = Contacts.file.name.replace(/\.[^.]+$/, '') + '-limpia.csv'; a.click();
+    } catch (e) { toast(e.message); }
   },
   async importar(ev) {
     ev.preventDefault();
@@ -930,7 +948,7 @@ const Ajustes = {
     Ajustes.us = us; Ajustes.rs = rs;
     const roles = App.estado.roles;
     $('#usr-list').innerHTML = `<table class="t"><thead><tr><th>Usuario</th><th>Rol</th><th></th></tr></thead><tbody>${us.map(u => `<tr><td><b>${esc(u.nombre)}</b><div class="small muted">@${esc(u.usuario)}${u.activo === false ? ' · desactivado' : ''}</div></td><td>${esc((roles[u.rol] || u.rol).split(' (')[0])}${u.principal ? ' <span class="badge">principal</span>' : ''}</td><td>${u.principal ? '' : `<div class="row" style="justify-content:flex-end"><button class="btn sm alt" onclick="Ajustes.usuario('${esc(u.usuario)}')">Editar</button><button class="btn sm danger" onclick="Ajustes.borrarUsuario('${esc(u.usuario)}')">✕</button></div>`}</td></tr>`).join('')}</tbody></table>`;
-    $('#rem-list').innerHTML = rs.length ? `<table class="t"><tbody>${rs.map(r => `<tr><td><b>${esc(r.nombre)}</b><div class="small muted">${esc(r.email)} · ${esc(r.host)}</div></td><td><div class="row" style="justify-content:flex-end"><button class="btn sm alt" onclick="Ajustes.probar('${r.id}', this)">Probar</button>${r.principal ? '<span class="badge">variables</span>' : `<button class="btn sm alt" onclick="Ajustes.remitente('${r.id}')">Editar</button><button class="btn sm danger" onclick="Ajustes.borrarRem('${r.id}')">✕</button>`}</div></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Aún no hay correos para enviar.</div>';
+    $('#rem-list').innerHTML = rs.length ? `<table class="t"><tbody>${rs.map(r => `<tr><td><b>${esc(r.nombre)}</b><div class="small muted">${esc(r.email)} · ${r.gmail ? 'Gmail' : esc(r.host)} · ${r.limiteDiario ? `máx. ${nf(r.limiteDiario)}/día` : 'sin límite diario'}</div></td><td><div class="row" style="justify-content:flex-end"><button class="btn sm alt" onclick="Ajustes.probar('${r.id}', this)">Probar</button>${r.principal ? '<span class="badge">variables</span>' : `<button class="btn sm alt" onclick="Ajustes.remitente('${r.id}')">Editar</button><button class="btn sm danger" onclick="Ajustes.borrarRem('${r.id}')">✕</button>`}</div></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Aún no hay correos para enviar.</div>';
   },
   usuario(u) {
     const x = u ? Ajustes.us.find(y => y.usuario === u) : { rol: 'diseno', activo: true };
@@ -952,22 +970,41 @@ const Ajustes = {
   },
   async borrarUsuario(u) { if (!confirm(`¿Eliminar el usuario ${u}?`)) return; try { await api('/api/usuarios/' + encodeURIComponent(u), { method: 'DELETE' }); Ajustes.load(); } catch (e) { toast(e.message); } },
   remitente(id) {
-    const r = id ? Ajustes.rs.find(x => x.id === id) : { port: 587 };
+    const r = id ? Ajustes.rs.find(x => x.id === id) : { port: 587, gmail: true };
+    const gmail = r.gmail !== false && (!id || /@(gmail|googlemail)\.com$/.test(r.email || ''));
     Modal.open(`${Modal.head(id ? 'Editar correo de envío' : 'Agregar correo de envío')}
-      <form onsubmit="return Ajustes.guardarRem(event)">
+      <form id="rem-form" onsubmit="return Ajustes.guardarRem(event)">
         <input type="hidden" name="id" value="${esc(r.id || '')}">
-        <div class="grid g2"><div><label>Nombre que verán</label><input type="text" name="nombre" required value="${esc(r.nombre || '')}" placeholder="Alcaldía de Villa del Rosario"></div><div><label>Correo</label><input type="email" name="email" required value="${esc(r.email || '')}" placeholder="prensa@villadelrosario.gov.co"></div></div>
-        <label>Responder a (opcional)</label><input type="email" name="replyTo" value="${esc(r.replyTo || '')}">
-        <div class="grid g2"><div><label>Servidor SMTP</label><input type="text" name="host" required value="${esc(r.host || '')}" placeholder="smtp-relay.brevo.com"></div><div><label>Puerto</label><input type="text" name="port" value="${esc(r.port || 587)}"></div></div>
-        <div class="grid g2"><div><label>Usuario SMTP</label><input type="text" name="user" required value="${esc(r.user || '')}" autocomplete="off"></div><div><label>Clave SMTP ${id ? '(vacía = no cambiar)' : ''}</label><input type="password" name="pass" ${id ? '' : 'required'} autocomplete="new-password"></div></div>
-        <label>Máximo de correos por día (0 = sin límite)</label><input type="text" name="limiteDiario" value="${esc(r.limiteDiario || 0)}">
-        <p class="small muted">Google Workspace: smtp.gmail.com, puerto 465, con una "contraseña de aplicación". Microsoft 365: smtp.office365.com, puerto 587. Brevo: smtp-relay.brevo.com, puerto 587.</p>
+        <div class="seg"><label><input type="radio" name="modo" value="gmail" ${gmail ? 'checked' : ''} onchange="Ajustes.modoRem()"> Cuenta de Gmail</label><label><input type="radio" name="modo" value="smtp" ${gmail ? '' : 'checked'} onchange="Ajustes.modoRem()"> Otro servidor (dominio propio, Brevo…)</label></div>
+        <div class="grid g2"><div><label>Nombre que verán</label><input type="text" name="nombre" required value="${esc(r.nombre || '')}" placeholder="Alcaldía de Villa del Rosario"></div><div><label>Correo</label><input type="email" name="email" required value="${esc(r.email || '')}" placeholder="prensa.villadelrosario@gmail.com"></div></div>
+        <div id="rem-gmail">
+          <label>Contraseña de aplicación de Google ${id ? '(vacía = no cambiar)' : ''}</label><input type="password" name="passGmail" autocomplete="new-password" placeholder="16 letras, ej.: abcd efgh ijkl mnop">
+          <div class="demo-banner" style="margin-top:10px"><b>Cómo obtenerla (una sola vez):</b><ol class="list-steps" style="margin:6px 0 0"><li>Entra a <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">myaccount.google.com/security</a> con esa cuenta de Gmail.</li><li>Activa la <b>Verificación en dos pasos</b>.</li><li>Abre <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a>, escribe "Sala de Prensa" y pulsa <b>Crear</b>.</li><li>Copia las 16 letras y pégalas aquí. No es la clave normal de Gmail.</li></ol></div>
+          <p class="small muted">Con Gmail el panel envía máximo <b>300 correos al día</b>, uno cada ${App.estado.delay} segundos.</p>
+        </div>
+        <div id="rem-smtp">
+          <label>Responder a (opcional)</label><input type="email" name="replyTo" value="${esc(r.replyTo || '')}">
+          <div class="grid g2"><div><label>Servidor SMTP</label><input type="text" name="host" value="${esc(r.host || '')}" placeholder="smtp-relay.brevo.com"></div><div><label>Puerto</label><input type="text" name="port" value="${esc(r.port || 587)}"></div></div>
+          <div class="grid g2"><div><label>Usuario SMTP</label><input type="text" name="user" value="${esc(r.user || '')}" autocomplete="off"></div><div><label>Clave SMTP ${id ? '(vacía = no cambiar)' : ''}</label><input type="password" name="pass" autocomplete="new-password"></div></div>
+          <label>Máximo de correos por día (0 = sin límite)</label><input type="text" name="limiteDiario" value="${esc(r.limiteDiario || 300)}">
+          <p class="small muted">Microsoft 365: smtp.office365.com, puerto 587. Brevo: smtp-relay.brevo.com, puerto 587.</p>
+        </div>
         <div class="row" style="margin-top:12px"><button class="btn hot" type="submit">Guardar</button></div>
       </form>`, 'sm');
+    Ajustes.modoRem();
+  },
+  modoRem() {
+    const g = $('#rem-form').querySelector('[name=modo]:checked').value === 'gmail';
+    $('#rem-gmail').style.display = g ? '' : 'none';
+    $('#rem-smtp').style.display = g ? 'none' : '';
   },
   async guardarRem(ev) {
     ev.preventDefault();
-    try { await api('/api/remitentes', { method: 'POST', body: Object.fromEntries(new FormData(ev.target)) }); Modal.close(); toast('Correo guardado. Pulsa "Probar" para verificar la conexión.'); Ajustes.load(); } catch (e) { toast(e.message); }
+    const b = Object.fromEntries(new FormData(ev.target));
+    if (b.modo === 'gmail') { Object.assign(b, { host: 'smtp.gmail.com', port: 465, secure: true, user: b.email, pass: b.passGmail, limiteDiario: 300 }); }
+    if (b.modo === 'gmail' && !b.id && !b.pass) return toast('Pega la contraseña de aplicación de Google.'), false;
+    delete b.passGmail; delete b.modo;
+    try { await api('/api/remitentes', { method: 'POST', body: b }); Modal.close(); toast('Correo guardado. Pulsa "Probar" para verificar la conexión.'); Ajustes.load(); } catch (e) { toast(e.message); }
     return false;
   },
   async probar(id, b) { b.disabled = true; b.textContent = 'Probando…'; try { await api(`/api/remitentes/${id}/probar`, { method: 'POST' }); toast('Conexión correcta ✓'); } catch (e) { toast(e.message); } b.disabled = false; b.textContent = 'Probar'; },

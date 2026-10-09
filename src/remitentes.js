@@ -60,13 +60,23 @@ async function guardar(datos) {
     secure: datos.secure === true || datos.secure === 'true' || Number(datos.port) === 465,
     user: String(datos.user || '').trim(),
     limiteDiario: Number(datos.limiteDiario || 0),
+    gmail: false,
     creado: prev ? prev.creado : new Date().toISOString(),
   };
+  // Cuentas de Gmail: servidor de Google, el remitente debe ser la misma cuenta y máximo 300 correos al día.
+  r.gmail = /@(gmail|googlemail)\.com$/.test(r.email) || /smtp\.gmail\.com/i.test(r.host);
+  if (/@(gmail|googlemail)\.com$/.test(r.email)) {
+    r.host = r.host || 'smtp.gmail.com';
+    if (!datos.port || Number(datos.port) === 587) { r.port = 465; r.secure = true; }
+    r.user = r.user || r.email;
+    if (r.user !== r.email) throw new Error('Con Gmail, el usuario SMTP debe ser el mismo correo que envía.');
+    if (!r.limiteDiario || r.limiteDiario > 300) r.limiteDiario = 300;
+  }
   if (!r.nombre) throw new Error('Escribe el nombre que verán las personas (ej.: Alcaldía de Villa del Rosario).');
   if (!EMAIL_RE.test(r.email)) throw new Error('El correo del remitente no es válido.');
   if (r.replyTo && !EMAIL_RE.test(r.replyTo)) throw new Error('El correo de respuesta no es válido.');
   if (!r.host || !r.user) throw new Error('Faltan los datos del servidor de correo (SMTP).');
-  r.passEnc = datos.pass ? cifrar(datos.pass) : prev && prev.passEnc;
+  r.passEnc = datos.pass ? cifrar(String(datos.pass).replace(/\s+/g, '')) : prev && prev.passEnc;
   if (!r.passEnc) throw new Error('Escribe la clave SMTP.');
   await remitentes.put(r.id, r);
   return publico(r);

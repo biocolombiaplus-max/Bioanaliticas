@@ -27,7 +27,11 @@ function revisar(c, remitente) {
   add(!enlaces.some(u => /bit\.ly|tinyurl|goo\.gl|t\.co\/|cutt\.ly/i.test(u)), enlaces.some(u => /bit\.ly|tinyurl|goo\.gl|cutt\.ly/i.test(u)) ? 'Evita acortadores de enlaces (bit.ly, etc.): los filtros los asocian con spam.' : 'Sin acortadores de enlaces.');
   if (remitente) {
     const dom = remitente.email.split('@')[1];
-    add(!/^(gmail|hotmail|outlook|yahoo|live)\./i.test(dom), /^(gmail|hotmail|outlook|yahoo|live)\./i.test(dom) ? `Envías desde ${dom}: para envíos masivos usa un dominio propio con SPF, DKIM y DMARC.` : `Remitente con dominio propio (${dom}).`, /^(gmail|hotmail|outlook|yahoo|live)\./i.test(dom) ? 'aviso' : 'ok');
+    if (/^(gmail|googlemail)\.com$/i.test(dom)) {
+      add(true, `Envío desde Gmail: el panel no pasa de ${remitente.limiteDiario || 300} correos al día y espera ${process.env.SEND_DELAY_SECONDS || 10} segundos entre cada uno, dentro de las reglas de Google.`);
+      add(!c.imagenUrl || String(c.mensaje || '').length > 200, 'Con Gmail, prefiere correos con buen texto y una sola imagen liviana.');
+    } else
+    add(!/^(hotmail|outlook|yahoo|live)\./i.test(dom), /^(hotmail|outlook|yahoo|live)\./i.test(dom) ? `Envías desde ${dom}: para envíos masivos usa un dominio propio con SPF, DKIM y DMARC.` : `Remitente con dominio propio (${dom}).`, /^(hotmail|outlook|yahoo|live)\./i.test(dom) ? 'aviso' : 'ok');
   } else add(false, 'No hay remitente configurado: el envío queda en modo prueba.', 'aviso');
   const pendientes = (todo.match(/\[[^\]]{2,60}\]/g) || []);
   add(!pendientes.length, pendientes.length ? `Faltan textos por completar: ${pendientes.slice(0, 3).join(', ')}. No envíes el correo así.` : 'Sin textos de plantilla pendientes.');

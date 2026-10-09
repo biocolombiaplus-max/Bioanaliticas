@@ -1,5 +1,5 @@
 // Lectura y análisis de bases de datos: CSV (coma, punto y coma o tabulador) y Excel (.xlsx).
-const EMAIL_RE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[a-z]{2,}$/i;
+const { limpiarContacto, limpiarEmail, ordenarNombre, dominiosSinCorreo, EMAIL_RE } = require('./limpieza');
 
 function detectDelimiter(line) {
   const counts = { ',': 0, ';': 0, '\t': 0 };
@@ -101,27 +101,30 @@ function rowToContact(r, idx) {
   };
 }
 
-function parseContacts(rows) {
+// Contactos listos para importar: limpios, sin repetidos, sin correos riesgosos ni dominios inexistentes.
+async function parseContacts(rows, { verificarDominios = true } = {}) {
   const { idx, body } = mapHeader(rows);
+  const limpios = body.map(r => limpiarContacto(rowToContact(r, idx)));
+  const malos = verificarDominios ? await dominiosSinCorreo(limpios.filter(x => x.tipo !== 'invalido').map(x => x.contacto.email.split('@')[1])) : new Set();
   const out = [];
-  let invalid = 0, sinAutorizacion = 0;
-  for (const r of body) {
-    const c = rowToContact(r, idx);
-    if (!EMAIL_RE.test(c.email)) { invalid++; continue; }
+  let invalid = 0, sinAutorizacion = 0, descartados = 0;
+  for (const { contacto: c, tipo } of limpios) {
+    if (tipo === 'invalido') { invalid++; continue; }
+    if (tipo === 'desechable' || tipo === 'prueba' || malos.has(c.email.split('@')[1])) { descartados++; continue; }
     if (idx.autorizacion !== undefined && NO.has(norm(c.autorizacionTexto))) { sinAutorizacion++; continue; }
     delete c.autorizacionTexto;
-    if (c.ciudad) c.ciudad = titulo(c.ciudad);
+    if (tipo === 'institucional') c.institucional = true;
     out.push(c);
   }
-  return { contacts: out, invalid, sinAutorizacion, hasConsentColumn: idx.autorizacion !== undefined };
+  out.sort((x, y) => (x.ciudad || 'zz').localeCompare(y.ciudad || 'zz', 'es') || (x.nombre || 'zz').localeCompare(y.nombre || 'zz', 'es'));
+  return { contacts: out, invalid: invalid + descartados, descartados, sinAutorizacion, hasConsentColumn: idx.autorizacion !== undefined };
 }
 
 const top = (map, n = 8) => Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, n);
 const inc = (m, k) => { if (k) m[k] = (m[k] || 0) + 1; };
-const titulo = s => s.toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase()).replace(/ (De|Del|La|Los|Las|Y) /g, m => m.toLowerCase());
 
 // Diagnóstico de una base antes de importarla.
-function perfil(rows, existentes = new Map()) {
+async function perfil(rows, existentes = new Map()) {
   const { idx, body, header } = mapHeader(rows);
   const p = {
     filas: body.length,
@@ -129,19 +132,30 @@ function perfil(rows, existentes = new Map()) {
     validos: 0, invalidos: 0, duplicados: 0, yaExisten: 0, conBaja: 0,
     conNombre: 0, sinNombre: 0, conCiudad: 0, conTelefono: 0,
     autorizacion: { columna: idx.autorizacion !== undefined, si: 0, no: 0, sinDato: 0 },
+    limpieza: { correosCorregidos: 0, nombresOrdenados: 0, ciudadesUnificadas: 0, telefonosFormateados: 0, institucionales: 0, desechables: 0, prueba: 0, sinBuzon: 0, ejemplos: [], ejemplosSinBuzon: [] },
     dominios: {}, ciudades: {}, organizaciones: {}, ejemplosInvalidos: [], muestra: [],
   };
+  const limpios = body.map(r => limpiarContacto(rowToContact(r, idx)));
+  const malos = await dominiosSinCorreo(limpios.filter(x => x.tipo !== 'invalido').map(x => x.contacto.email.split('@')[1]));
+  const L = p.limpieza;
   const seen = new Set();
-  for (const r of body) {
-    const c = rowToContact(r, idx);
-    if (!EMAIL_RE.test(c.email)) { p.invalidos++; if (p.ejemplosInvalidos.length < 6) p.ejemplosInvalidos.push(c.email || '(vacío)'); continue; }
+  for (const { contacto: c, tipo, cambios } of limpios) {
+    if (tipo === 'invalido') { p.invalidos++; if (p.ejemplosInvalidos.length < 6) p.ejemplosInvalidos.push(c.email || '(vacío)'); continue; }
+    if (cambios.email) { L.correosCorregidos++; if (L.ejemplos.length < 6) L.ejemplos.push(cambios.email); }
+    if (tipo === 'desechable') { L.desechables++; continue; }
+    if (tipo === 'prueba') { L.prueba++; continue; }
+    if (malos.has(c.email.split('@')[1])) { L.sinBuzon++; if (L.ejemplosSinBuzon.length < 5) L.ejemplosSinBuzon.push(c.email); continue; }
     if (seen.has(c.email)) { p.duplicados++; continue; }
     seen.add(c.email);
     p.validos++;
+    if (tipo === 'institucional') L.institucionales++;
+    if (cambios.nombre) L.nombresOrdenados++;
+    if (cambios.ciudad) L.ciudadesUnificadas++;
+    if (cambios.telefono) L.telefonosFormateados++;
     const ex = existentes.get(c.email);
     if (ex) { p.yaExisten++; if (ex.baja) p.conBaja++; }
     c.nombre ? p.conNombre++ : p.sinNombre++;
-    if (c.ciudad) { p.conCiudad++; inc(p.ciudades, titulo(c.ciudad)); }
+    if (c.ciudad) { p.conCiudad++; inc(p.ciudades, c.ciudad); }
     if (c.telefono) p.conTelefono++;
     if (c.organizacion) inc(p.organizaciones, c.organizacion);
     inc(p.dominios, c.email.split('@')[1]);
@@ -157,11 +171,14 @@ function perfil(rows, existentes = new Map()) {
   p.listosParaEnviar = p.validos - p.autorizacion.no - p.conBaja;
   p.calidad = p.filas ? Math.round(100 * p.validos / p.filas) : 0;
   p.alertas = [];
-  if (p.invalidos) p.alertas.push(`${p.invalidos} correos tienen errores de escritura y se descartarán.`);
-  if (p.duplicados) p.alertas.push(`${p.duplicados} correos están repetidos en el archivo; se importará cada uno una sola vez.`);
-  if (!p.autorizacion.columna) p.alertas.push('El archivo no tiene una columna de autorización: confirma que todas las personas aceptaron recibir información.');
+  if (p.invalidos) p.alertas.push(`${p.invalidos} correos están incompletos o mal escritos y se descartarán.`);
+  if (L.sinBuzon) p.alertas.push(`${L.sinBuzon} correos son de dominios que no existen o no reciben correo: se descartarán para proteger la reputación del remitente.`);
+  if (L.desechables + L.prueba) p.alertas.push(`${L.desechables + L.prueba} correos son temporales o de prueba y se descartarán.`);
+  if (p.duplicados) p.alertas.push(`${p.duplicados} correos están repetidos; se importará cada uno una sola vez.`);
+  if (!p.autorizacion.columna) p.alertas.push('El archivo no tiene columna de autorización: confirma que todas las personas aceptaron recibir información.');
   if (p.autorizacion.no) p.alertas.push(`${p.autorizacion.no} personas dijeron que NO autorizan: no se importarán.`);
   if (p.conBaja) p.alertas.push(`${p.conBaja} personas se habían dado de baja antes: seguirán excluidas.`);
+  if (L.institucionales) p.alertas.push(`${L.institucionales} son correos genéricos (info@, contacto@…): se importan, pero suelen abrir menos.`);
   if (p.sinNombre > p.validos / 2) p.alertas.push('Más de la mitad no tiene nombre: el saludo será general ("Hola,").');
   return p;
 }
@@ -175,8 +192,8 @@ function parseManual(text) {
     const t = part.trim();
     if (!t) continue;
     const m = t.match(/^(.*?)<\s*([^>]+)\s*>$/);
-    const email = (m ? m[2] : t).trim().toLowerCase();
-    const nombre = m ? m[1].replace(/["']/g, '').trim() : '';
+    const email = limpiarEmail(m ? m[2] : t).email;
+    const nombre = m ? ordenarNombre(m[1].replace(/["']/g, '')) : '';
     if (!EMAIL_RE.test(email)) { invalidos.push(t); continue; }
     if (seen.has(email)) continue;
     seen.add(email);
@@ -185,4 +202,4 @@ function parseManual(text) {
   return { contactos: out, invalidos };
 }
 
-module.exports = { readRows, parseContacts, perfil, parseManual, EMAIL_RE };
+module.exports = { readRows, mapHeader, rowToContact, parseContacts, perfil, parseManual, EMAIL_RE };
