@@ -22,6 +22,45 @@ function credencialesRedis() {
 }
 const [REDIS_URL, REDIS_TOKEN] = credencialesRedis();
 
+// Redis clásico (redis:// o rediss://), como el que crea Vercel con "Redis" (Redis Cloud): KV_REDIS_URL, REDIS_URL...
+function urlRedisTcp() {
+  const e = process.env;
+  if (e.KV_REDIS_URL) return e.KV_REDIS_URL;
+  if (e.REDIS_URL) return e.REDIS_URL;
+  const k = Object.keys(e).find(n => /REDIS_URL$/.test(n) && /^rediss?:\/\//.test(e[n]));
+  return k ? e[k] : null;
+}
+
+function redisTcpBackend(url) {
+  const Redis = require('ioredis');
+  const r = new Redis(url, { maxRetriesPerRequest: 2, connectTimeout: 8000, enableReadyCheck: false });
+  r.on('error', e => console.error('[redis]', e.message));
+  const P = process.env.REDIS_PREFIX || 'bio:';
+  return {
+    kind: 'redis',
+    async hget(k, f) { return r.hget(P + k, f); },
+    async hgetall(k) { return (await r.hgetall(P + k)) || {}; },
+    async hset(k, obj) { if (Object.keys(obj).length) await r.hset(P + k, obj); },
+    async hdel(k, f) { await r.hdel(P + k, f); },
+    async hincrby(k, f, n) { return r.hincrby(P + k, f, n); },
+    async hlen(k) { return r.hlen(P + k); },
+    async get(k) { return r.get(P + k); },
+    async set(k, v, opts = {}) {
+      const args = [P + k, v];
+      if (opts.ex) args.push('EX', opts.ex);
+      if (opts.nx) args.push('NX');
+      return (await r.set(...args)) === 'OK';
+    },
+    async del(k) { await r.del(P + k); },
+    async incr(k, ex) { const n = await r.incr(P + k); if (ex && n === 1) await r.expire(P + k, ex); return n; },
+    async rpush(k, ...vals) { if (vals.length) await r.rpush(P + k, ...vals); },
+    async lpop(k) { return r.lpop(P + k); },
+    async llen(k) { return r.llen(P + k); },
+    async lrange(k, a, b) { return r.lrange(P + k, a, b); },
+    async ltrim(k, a, b) { await r.ltrim(P + k, a, b); },
+  };
+}
+
 function redisBackend() {
   const { Redis } = require('@upstash/redis');
   const r = new Redis({ url: REDIS_URL, token: REDIS_TOKEN, automaticDeserialization: false });
@@ -94,7 +133,8 @@ function fileBackend() {
   };
 }
 
-const kv = REDIS_URL && REDIS_TOKEN ? redisBackend() : fileBackend();
+const TCP_URL = urlRedisTcp();
+const kv = REDIS_URL && REDIS_TOKEN ? redisBackend() : TCP_URL ? redisTcpBackend(TCP_URL) : fileBackend();
 
 // Colecciones de objetos (hash de id -> JSON).
 const col = name => ({

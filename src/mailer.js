@@ -62,11 +62,8 @@ function buildMessage(campaign, { email, nombre, token }, sender = null) {
 }
 
 async function deliver(msg, token, sender) {
-  const info = await getTransport(sender).sendMail(msg);
-  if (!sender && info.message) {
-    await kv.set('outbox:' + token, info.message.toString('utf8').slice(0, 200000), { ex: 3 * 86400 });
-  }
-  return info;
+  // Sin remitente (modo prueba) el correo se arma completo pero no sale ni se guarda: el plan gratuito de Redis es pequeño.
+  return getTransport(sender).sendMail(msg);
 }
 
 async function sendTest(campaign, email, nombre = '') {

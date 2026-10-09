@@ -21,6 +21,7 @@
     "@vercel/blob": "^2.8.1",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
+    "ioredis": "^6.0.0",
     "multer": "^2.4.0",
     "nodemailer": "^10.0.16",
     "read-excel-file": "^9.3.12"

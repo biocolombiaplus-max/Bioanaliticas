@@ -31,7 +31,7 @@ Herramienta de gestión para la oficina de prensa. Empieza con las **Ferias y Fi
 1. Crea una cuenta en [vercel.com](https://vercel.com) con tu cuenta de GitHub.
 2. Ve a **Add New → Project** e importa el repositorio `Bioanaliticas`. Deja la configuración tal como la propone (el archivo `vercel.json` ya trae todo) y pulsa **Deploy**.
 3. En el proyecto, entra a **Storage** y conecta:
-   - **Upstash for Redis** (plan gratuito): es la base de datos. Crea solas `KV_REST_API_URL` y `KV_REST_API_TOKEN`.
+   - **Redis** o **Upstash for Redis** (plan gratuito; en Upstash elige High Availability = None para ver el plan Free): es la base de datos. El panel reconoce `KV_REDIS_URL` (Redis Cloud) y `KV_REST_API_URL` (Upstash). Crea solas las variables de conexión.
    - **Blob**: guarda las imágenes que se suben. Crea sola `BLOB_READ_WRITE_TOKEN`.
 4. En **Settings → Environment Variables**, agrega como mínimo:
    - `ADMIN_USERS`, por ejemplo `ligia:UnaClaveSegura`
