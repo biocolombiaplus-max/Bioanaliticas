@@ -219,7 +219,7 @@ const INFORME_SCHEMA = {
 };
 
 // Redacta el informe de gestión de la agenda a partir de las actividades del periodo.
-async function informeAgenda({ desde, hasta, cifras, actividades, enfoque }) {
+async function informeAgenda({ desde, hasta, cifras, actividades, equipo = [], enfoque }) {
   return ask({
     content: [{
       type: 'text',
@@ -232,6 +232,7 @@ ${enfoque ? 'Enfoque pedido por la jefa de prensa: ' + enfoque : ''}
 - cierre: una frase final.
 
 Cifras: ${JSON.stringify(cifras)}
+Equipo de trabajo (reconoce su aporte en los logros cuando corresponda): ${JSON.stringify(equipo)}
 Actividades: ${JSON.stringify(actividades)}`,
     }],
     schema: INFORME_SCHEMA,

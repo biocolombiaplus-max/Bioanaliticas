@@ -406,3 +406,23 @@ input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .visor img{width:100%;max-height:65vh;object-fit:contain;border-radius:12px;background:#1f1d3d}
 .visor-acc{margin-top:12px;justify-content:center}
 @media (max-width:860px){.toast{left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:none}}
+
+/* Equipo y firma */
+.av{display:inline-grid;place-items:center;border-radius:50%;background:var(--c);color:#fff;font-weight:700;flex:none;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.avs{display:flex;margin-top:6px}.avs .av+.av{margin-left:-6px}
+.eq{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.eq.off{opacity:.55}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;margin:0;border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 4px;font-size:13px;font-weight:500;cursor:pointer;background:#fff;font-family:inherit;color:var(--ink)}
+.chip input{display:none}
+.chip:has(input:checked){border-color:var(--navy);background:var(--soft);box-shadow:inset 0 0 0 1px var(--navy)}
+.chip.add{padding:6px 12px;color:var(--orange);border-style:dashed;font-weight:600}
+.cargos{display:flex;flex-wrap:wrap;gap:6px}
+.cargos label{margin:0;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer}
+.cargos label:has(input:checked){border-color:var(--navy);background:var(--navy);color:#fff}
+.cargos input{display:none}
+.firma-pad{position:relative;border:2px dashed #cfcaf5;border-radius:14px;background:#fff;touch-action:none}
+.firma-pad canvas{display:block;width:100%;height:auto;aspect-ratio:3/1;touch-action:none;cursor:crosshair}
+.firma-hint{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);pointer-events:none;font-size:14px}
+.firma-pad::after{content:"";position:absolute;left:8%;right:8%;bottom:22%;border-bottom:1px solid #d9d6ee;pointer-events:none}
+.firma-mini{max-width:220px;max-height:80px;display:block;margin:6px 0}

@@ -67,15 +67,31 @@
   .act .ph4 img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px}
   .act a{color:var(--violet);word-break:break-all;font-size:10px}
   .dia{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--orange);margin:14px 0 6px}
-  .firma{margin-top:30mm;display:grid;grid-template-columns:1fr 1fr;gap:20mm}
-  .firma div{border-top:1px solid var(--ink);padding-top:6px;font-size:11px}
+  .firma{margin-top:16mm;display:grid;grid-template-columns:1fr 1fr;gap:20mm;font-size:11px;page-break-inside:avoid}
+  .firma .linea{border-top:1px solid var(--ink);margin:2px 0 6px}
+  .firma-box{height:26mm;display:flex;align-items:flex-end;justify-content:center}
+  .firma-img{display:block;max-width:62mm;max-height:26mm;margin-bottom:-3mm;object-fit:contain}
+  .eq-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .eqc{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px;page-break-inside:avoid}
+  .eqc .m{font-size:10.5px;color:var(--ink2)}
+  .av{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--c);color:#fff;font-weight:700;font-size:13px;flex:none}
+  .panel{position:fixed;inset:0;background:rgba(27,24,80,.5);display:grid;place-items:center;z-index:20;padding:16px}
+  .panel[hidden]{display:none}
+  .panel-card{background:#fff;border-radius:18px;padding:18px;width:100%;max-width:440px;max-height:85vh;overflow:auto;font-size:14px}
+  .panel-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .panel-h button{border:0;background:#f3f1fb;width:34px;height:34px;border-radius:50%;font-size:20px;cursor:pointer}
+  .pick{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .pick input{width:20px;height:20px}
+  .pick small{color:var(--muted)}
+  .panel-acc{margin-top:14px;text-align:right}
+  .panel-acc .ok{font:inherit;font-weight:600;border:0;border-radius:999px;padding:10px 20px;background:var(--orange);color:#fff;cursor:pointer}
   [contenteditable="true"]{outline:2px dashed #f0b27a;outline-offset:3px;border-radius:6px;background:#fffaf4}
   .pf{position:absolute;bottom:8mm;left:15mm;right:15mm;display:flex;justify-content:space-between;font-size:9.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
   .loading{text-align:center;padding:80px;color:var(--muted);font-size:16px}
   .opts{display:none}
   @page{size:A4;margin:0}
   @media print{body{background:#fff;font-size:11.5px}.toolbar,.aviso{display:none}.page{margin:0;box-shadow:none;min-height:297mm}[contenteditable]{outline:0;background:none}}
-  @media screen and (max-width:820px){.page{width:auto;min-height:0;margin:10px;padding:18px}.cover .in{padding:24px}.cover h1{font-size:32px}.g3{grid-template-columns:1fr 1fr}.pf{position:static;margin-top:16px}.act .ph4{grid-template-columns:1fr 1fr}}
+  @media screen and (max-width:820px){.eq-grid{grid-template-columns:1fr 1fr}.firma{gap:8mm}.page{width:auto;min-height:0;margin:10px;padding:18px}.cover .in{padding:24px}.cover h1{font-size:32px}.g3{grid-template-columns:1fr 1fr}.pf{position:static;margin-top:16px}.act .ph4{grid-template-columns:1fr 1fr}}
   html,body{overflow-x:hidden;overflow-x:clip;max-width:100%}
 </style>
 </head>
@@ -85,6 +101,8 @@
   <div class="grp">
     <label><input type="checkbox" id="o-fotos" checked> Fotos</label>
     <label><input type="checkbox" id="o-canceladas"> Canceladas</label>
+    <button id="b-equipo">👥 Equipo</button>
+    <a id="b-firma" href="/app.html#firma" style="display:none;font-weight:600;border-radius:999px;padding:8px 14px;background:#fff;color:#2a2672;text-decoration:none">✍ Agregar mi firma</a>
     <button id="b-ia" style="display:none">✦ Redactar con IA</button>
     <button id="b-editar">✎ Editar textos</button>
     <button class="hot" onclick="window.print()">Descargar PDF</button>
@@ -92,6 +110,7 @@
 </div>
 <div class="aviso" id="aviso" style="display:none"></div>
 <div id="doc"><div class="loading">Preparando el informe…</div></div>
+<div id="panel" class="panel" hidden></div>
 <script src="/informe-agenda.js"></script>
 </body>
 </html>

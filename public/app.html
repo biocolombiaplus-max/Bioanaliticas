@@ -71,7 +71,7 @@
     <!-- AGENDA DE GESTIÓN -->
     <section class="view" id="v-agenda">
       <div class="top"><div><h1>Agenda de gestión</h1><p>Programa, marca lo realizado y guarda fotos y enlaces como soporte. Con un clic sale el informe de gestión.</p></div>
-        <button class="btn hot ag-add" id="ag-nueva" onclick="Agenda.editar()">+ Nueva actividad</button></div>
+        <div class="row"><button class="btn alt" onclick="Equipo.abrir()">👥 Equipo</button><button class="btn hot ag-add" id="ag-nueva" onclick="Agenda.editar()">+ Nueva actividad</button></div></div>
       <div class="grid g4" id="ag-kpis"></div>
       <div class="card ag-bar">
         <div class="tabs" id="ag-tabs" style="margin:0"></div>
@@ -268,6 +268,10 @@
           <p class="muted small">El rol <b>Diseño</b> solo puede subir piezas, ver sus comentarios y consultar el calendario.</p><div id="usr-list"></div></div>
         <div class="card"><div class="card-h"><h2>Correos para enviar</h2><button class="btn sm hot" onclick="Ajustes.remitente()">+ Agregar correo</button></div>
           <p class="muted small">Cada cuenta necesita sus datos SMTP (los da tu proveedor: Brevo, Google Workspace, Microsoft 365, etc.). La clave se guarda cifrada.</p><div id="rem-list"></div></div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><div class="card-h"><h2>Mi firma</h2><button class="btn sm hot" onclick="Firma.abrir()">✍ Firmar</button></div><p class="muted small">Aparece al final de los informes de gestión, con tu nombre y cargo.</p><div id="firma-estado"></div></div>
+        <div class="card"><div class="card-h"><h2>Equipo de trabajo</h2><button class="btn sm hot" onclick="Equipo.abrir()">👥 Gestionar</button></div><p class="muted small">Periodistas, fotógrafos, diseñadores y demás colaboradores que se eligen en cada actividad de la agenda.</p></div>
       </div>
       <div class="grid g2">
         <div class="card"><h2>Conexiones</h2><div id="status"></div></div>

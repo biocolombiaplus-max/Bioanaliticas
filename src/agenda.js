@@ -45,6 +45,7 @@ async function guardar(d, user) {
     prioridad: PRIORIDADES[d.prioridad] ? d.prioridad : 'normal',
     lugar: limpio(d.lugar, 160),
     participantes: limpio(d.participantes, 400),
+    equipo: (Array.isArray(d.equipo) ? d.equipo : String(d.equipo || '').split(',')).map(x => String(x).trim()).filter(x => /^m[\w-]{3,20}$/.test(x)).slice(0, 30),
     descripcion: limpio(d.descripcion, 3000),
     resultados: limpio(d.resultados, 3000),
     asistentes: num(d.asistentes),
@@ -145,7 +146,7 @@ function narrativa(items, r, desde, hasta) {
     resumen_ejecutivo: `Entre el ${f(desde)} y el ${f(hasta)} la Oficina de Prensa gestionó ${pl(r.total, 'actividad', 'actividades')}, de las cuales ${pl(r.porEstado.realizada, 'se realizó', 'se realizaron')} (${r.cumplimiento}% de cumplimiento sobre lo programado). ${tipos.length ? `Predominaron: ${tipos.join(', ')}.` : ''} ${r.medios ? `Se contó con la presencia de ${pl(r.medios, 'medio', 'medios')} de comunicación` : ''}${r.medios && r.asistentes ? ` y ${n(r.asistentes)} asistentes en total.` : r.asistentes ? `Las actividades reunieron ${n(r.asistentes)} asistentes.` : r.medios ? '.' : ''} ${r.conSoportes ? `${pl(r.conSoportes, 'actividad cuenta', 'actividades cuentan')} con soportes (fotografías o enlaces).` : ''}`.replace(/\s+/g, ' ').trim(),
     logros: destacadas.map(a => `${a.titulo}${a.resultados ? ': ' + a.resultados.split(/\n/)[0] : ''}`),
     recomendaciones: [
-      r.porEstado.programada ? `Hacer seguimiento a las ${r.porEstado.programada} actividades que siguen programadas y registrar sus resultados.` : 'Mantener el registro diario de resultados y soportes.',
+      r.porEstado.programada ? `Hacer seguimiento a ${r.porEstado.programada === 1 ? 'la actividad que sigue programada' : `las ${r.porEstado.programada} actividades que siguen programadas`} y registrar sus resultados.` : 'Mantener el registro diario de resultados y soportes.',
       r.total && r.conSoportes < r.porEstado.realizada ? 'Adjuntar fotografías o enlaces a todas las actividades realizadas para fortalecer los soportes de gestión.' : 'Continuar documentando cada actividad con fotografías y enlaces.',
       'Consolidar las publicaciones generadas y su alcance en el informe de redes del mismo periodo.',
     ],

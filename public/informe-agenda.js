@@ -7,6 +7,9 @@ const fl = s => new Date(s + 'T12:00:00').toLocaleDateString('es-CO', { day: 'nu
 const mini = (url, w) => /res\.cloudinary\.com\/.+\/upload\//.test(url) ? url.replace('/upload/', `/upload/w_${w},c_fill,ar_4:3,q_auto,f_auto/`) : url;
 let D = null, editando = false;
 const charts = [];
+const iniciales = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+// Colaboradores que aparecen en el informe: los elegidos, o por defecto quienes participaron en el periodo.
+const equipoInforme = () => (D.equipoSeleccion ? D.equipo.filter(m => D.equipoSeleccion.includes(m.id)) : D.equipo.filter(m => m.actividades > 0)).sort((a, b) => b.actividades - a.actividades);
 
 if (window.Chart) { Chart.defaults.font.family = "'Poppins', system-ui, sans-serif"; Chart.defaults.font.size = 10; Chart.defaults.color = '#55537a'; Chart.defaults.animation = false; Chart.defaults.maintainAspectRatio = false; Chart.defaults.devicePixelRatio = 2; }
 
@@ -60,6 +63,7 @@ function render() {
     ${Object.entries(dias).map(([f, acts]) => `<div class="dia">${new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
       ${acts.map(a => `<div class="act ${a.estado}"><div class="t"><b>${a.hora ? a.hora + (a.horaFin ? '–' + a.horaFin : '') + ' · ' : ''}${esc(a.titulo)}</b><span class="tag ${a.estado === 'realizada' ? 'ok' : ''}">${esc(est[a.estado])}</span></div>
         <div class="m">${esc(tipos[a.tipo])}${a.lugar ? ' · ' + esc(a.lugar) : ''}${a.participantes ? ' · ' + esc(a.participantes) : ''}</div>
+        ${(a.equipo || []).length ? `<div class="m"><b>Equipo:</b> ${a.equipo.map(x => D.equipo.find(m => m.id === x)).filter(Boolean).map(m => `${esc(m.nombre)} (${esc(m.cargo.toLowerCase())})`).join(', ')}</div>` : ''}
         ${a.resultados ? `<div class="r"><b>Resultado:</b> ${esc(a.resultados)}</div>` : a.descripcion ? `<div class="r">${esc(a.descripcion)}</div>` : ''}
         ${a.asistentes || a.medios || a.publicaciones ? `<div class="m" style="margin-top:3px">${[a.asistentes ? nf(a.asistentes) + ' asistentes' : '', a.medios ? nf(a.medios) + ' medios' : '', a.publicaciones ? nf(a.publicaciones) + ' publicaciones' : ''].filter(Boolean).join(' · ')}</div>` : ''}
         ${verFotos && (a.fotos || []).length ? `<div class="ph4">${a.fotos.slice(0, 4).map(p => `<img src="${esc(mini(p.url, 500))}" alt="">`).join('')}</div>` : ''}
@@ -67,10 +71,17 @@ function render() {
       </div>`).join('')}`).join('') || '<p>No hay actividades en el periodo.</p>'}
     ${foot()}</section>`;
 
-  html += `<section class="page">${head}<h2><span class="n">04</span>Recomendaciones y próximos pasos</h2>
+  const eq = equipoInforme();
+  html += `<section class="page">${head}${eq.length ? `<h2><span class="n">04</span>Equipo de trabajo</h2>
+    <p style="color:var(--ink2);margin-top:0">Personas que hicieron posible la gestión del periodo.</p>
+    <div class="eq-grid">${eq.map(m => `<div class="eqc"><span class="av" style="--c:${esc(m.color || C.violet)}">${esc(iniciales(m.nombre))}</span><div><b>${esc(m.nombre)}</b><div class="m">${esc(m.cargo)}</div><div class="m">${m.actividades ? `${nf(m.actividades)} ${m.actividades === 1 ? 'actividad' : 'actividades'}` : 'Apoyo transversal'}</div></div></div>`).join('')}</div>` : ''}
+    <h2 style="margin-top:${eq.length ? '10mm' : '0'}"><span class="n">${eq.length ? '05' : '04'}</span>Recomendaciones y próximos pasos</h2>
     <ul class="f r" ${ed('recomendaciones')}>${T.recomendaciones.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
     <div class="lead" ${ed('cierre')}>${esc(T.cierre)}</div>
-    <div class="firma"><div><b>${esc(D.generadoPor)}</b><br>Jefe(a) de Prensa<br>${esc(D.organizacion)}</div><div><b>Recibido</b><br>Despacho<br>&nbsp;</div></div>
+    <div class="firma">
+      <div><div class="firma-box">${D.firma && D.firma.firma ? `<img class="firma-img" src="${D.firma.firma}" alt="Firma">` : ''}</div><div class="linea"></div><b>${esc((D.firma && D.firma.nombreCompleto) || D.generadoPor)}</b><br>${esc((D.firma && D.firma.cargo) || 'Jefe(a) de Prensa')}<br>${esc(D.organizacion)}</div>
+      <div><div class="firma-box"></div><div class="linea"></div><b>${esc((D.firma && D.firma.recibeNombre) || 'Recibido')}</b><br>${esc((D.firma && D.firma.recibeCargo) || 'Despacho')}<br>Fecha: ____ / ____ / ________</div>
+    </div>
     <p style="font-size:9.5px;color:var(--muted);margin-top:16mm">Fuente: agenda de gestión de la Oficina de Prensa (Sala de Prensa Digital). Las fotografías y enlaces son soporte de las actividades reportadas.</p>
     ${foot()}</section>`;
 
@@ -96,6 +107,8 @@ async function main() {
   D = await api(`/api/agenda/informe?desde=${encodeURIComponent(q.get('desde') || '')}&hasta=${encodeURIComponent(q.get('hasta') || '')}`);
   render();
   if (D.ia) document.getElementById('b-ia').style.display = '';
+  if (!(D.firma && D.firma.firma)) { const f = document.getElementById('b-firma'); f.style.display = ''; }
+  document.getElementById('b-equipo').onclick = elegirEquipo;
   avisar(D.textoIA ? 'Este informe usa el texto guardado para este periodo. Puedes editarlo o volver a redactarlo.' : (D.ia ? 'Texto generado automáticamente con las cifras. Usa "Redactar con IA" para una versión más elaborada, o edítalo a mano.' : 'Texto generado automáticamente con las cifras. Puedes editarlo con "Editar textos" antes de descargar el PDF.'));
   ['o-fotos', 'o-canceladas'].forEach(i => document.getElementById(i).addEventListener('change', () => { if (editando) D.texto = leerTextos(); render(); if (editando) activarEdicion(true); }));
   document.getElementById('b-editar').onclick = async () => {
@@ -113,6 +126,23 @@ async function main() {
     b.disabled = false; b.textContent = '✦ Redactar con IA';
   };
   if (q.get('imprimir') === '1') setTimeout(() => window.print(), 800);
+}
+
+// Selector de colaboradores que aparecen en el informe.
+function elegirEquipo() {
+  const sel = new Set(equipoInforme().map(m => m.id));
+  const p = document.getElementById('panel');
+  p.innerHTML = `<div class="panel-card"><div class="panel-h"><b>¿Quiénes aparecen en el informe?</b><button type="button" onclick="document.getElementById('panel').hidden=true">×</button></div>
+    ${D.equipo.length ? D.equipo.map(m => `<label class="pick"><input type="checkbox" value="${m.id}" ${sel.has(m.id) ? 'checked' : ''}><span class="av" style="--c:${esc(m.color)}">${esc(iniciales(m.nombre))}</span><span><b>${esc(m.nombre)}</b><br><small>${esc(m.cargo)} · ${m.actividades} actividades en el periodo</small></span></label>`).join('') : '<p>Aún no hay colaboradores. Agrégalos en la agenda, botón "Equipo".</p>'}
+    <div class="panel-acc"><button type="button" class="ok" id="eq-ok">Aplicar</button></div></div>`;
+  p.hidden = false;
+  document.getElementById('eq-ok').onclick = async () => {
+    const ids = [...p.querySelectorAll('input:checked')].map(i => i.value);
+    D.equipoSeleccion = ids; p.hidden = true;
+    if (editando) D.texto = leerTextos();
+    render(); if (editando) activarEdicion(true);
+    try { await api('/api/agenda/informe/equipo', { method: 'POST', body: { desde: D.desde, hasta: D.hasta, ids } }); } catch { /* se aplica aunque no se guarde */ }
+  };
 }
 
 function activarEdicion(on) {

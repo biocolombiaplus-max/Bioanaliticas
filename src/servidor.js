@@ -10,6 +10,7 @@ const usuarios = require('./usuarios');
 const remitentes = require('./remitentes');
 const oficina = require('./oficina');
 const agendaMod = require('./agenda');
+const equipoMod = require('./equipo');
 const { revisar: revisarAntispam } = require('./antispam');
 const mailer = require('./mailer');
 const ig = require('./instagram');
@@ -156,6 +157,7 @@ app.get('/api/estado', wrap(async (req, res) => {
     estadosCal: oficina.ESTADOS_CAL,
     checklist: oficina.CHECKLIST,
     agendaTipos: agendaMod.TIPOS,
+    cargos: equipoMod.CARGOS,
     agendaEstados: agendaMod.ESTADOS,
     archivos: uploads.proveedor(),
     smtp: (await remitentes.listar()).length > 0,
@@ -574,6 +576,17 @@ app.post('/api/calendario', wrap(async (req, res) => {
 }));
 app.delete('/api/calendario/:id', wrap(async (req, res) => { await oficina.eliminarEvento(req.params.id); res.json({ ok: true }); }));
 
+// ---- Equipo de trabajo y firma ----
+app.get('/api/equipo', wrap(async (req, res) => res.json(await equipoMod.listar())));
+app.post('/api/equipo', wrap(async (req, res) => {
+  try { res.json(await equipoMod.guardar(req.body)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.delete('/api/equipo/:id', wrap(async (req, res) => { await equipoMod.eliminar(req.params.id); res.json({ ok: true }); }));
+app.get('/api/perfil', wrap(async (req, res) => res.json({ usuario: req.user, nombre: req.perfil.nombre, ...(await equipoMod.perfil(req.user)) })));
+app.post('/api/perfil', wrap(async (req, res) => {
+  try { res.json(await equipoMod.guardarPerfil(req.user, req.body)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+
 // ---- Agenda de gestión ----
 app.get('/api/agenda', wrap(async (req, res) => res.json(await agendaMod.listar(req.query.desde, req.query.hasta))));
 app.post('/api/agenda', wrap(async (req, res) => {
@@ -608,17 +621,25 @@ async function datosInformeAgenda(desde, hasta) {
     const d = (c.iniciada || '').slice(0, 10);
     if (d && d >= desde && d <= hasta) { const st = await mailer.campaignStats(c.id); camps.push({ nombre: c.nombre, enviados: st.enviados, abiertos: st.abiertos, clics: st.clics }); }
   }
-  return { items, cifras, editorial, piezas: piezas.map(p => ({ titulo: p.titulo, canal: p.canal, estado: p.estado })), correos: camps };
+  // Participación del equipo en el periodo.
+  const miembros = await equipoMod.listar();
+  const part = {};
+  for (const a of items) if (a.estado !== 'cancelada') for (const m of a.equipo || []) part[m] = (part[m] || 0) + 1;
+  const equipo = miembros.map(m => ({ ...m, actividades: part[m.id] || 0 }));
+  return { items, cifras, editorial, piezas: piezas.map(p => ({ titulo: p.titulo, canal: p.canal, estado: p.estado })), correos: camps, equipo };
 }
 app.get('/api/agenda/informe', wrap(async (req, res) => {
   const { desde, hasta } = req.query;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(desde || '') || !/^\d{4}-\d{2}-\d{2}$/.test(hasta || '')) return res.status(400).json({ error: 'Elige las fechas del informe.' });
   const d = await datosInformeAgenda(desde, hasta);
   const guardado = await kv.get(`informe-agenda:${desde}:${hasta}`);
+  const seleccion = await kv.get(`informe-agenda-equipo:${desde}:${hasta}`);
+  const firma = await equipoMod.perfil(req.user);
   res.json({
     desde, hasta, organizacion: process.env.ORG_NAME || 'Alcaldía de Villa del Rosario', generadoPor: req.perfil.nombre,
     tipos: agendaMod.TIPOS, estados: agendaMod.ESTADOS, ia: ia.configured(),
     ...d, texto: guardado ? JSON.parse(guardado) : agendaMod.narrativa(d.items, d.cifras, desde, hasta), textoIA: Boolean(guardado),
+    equipoSeleccion: seleccion ? JSON.parse(seleccion) : null, firma,
   });
 }));
 app.post('/api/agenda/informe/ia', wrap(async (req, res) => {
@@ -630,11 +651,19 @@ app.post('/api/agenda/informe/ia', wrap(async (req, res) => {
     const texto = await ia.informeAgenda({
       desde, hasta, enfoque: String(enfoque || '').slice(0, 500),
       cifras: { ...d.cifras, publicacionesCalendario: d.editorial.length, piezasAprobadas: d.piezas.length, correos: d.correos },
-      actividades: d.items.map(a => ({ fecha: a.fecha, titulo: a.titulo, tipo: agendaMod.TIPOS[a.tipo], estado: a.estado, lugar: a.lugar, participantes: a.participantes, descripcion: a.descripcion.slice(0, 400), resultados: a.resultados.slice(0, 400), asistentes: a.asistentes, medios: a.medios, publicaciones: a.publicaciones, fotos: (a.fotos || []).length })).slice(0, 150),
+      equipo: d.equipo.filter(m => m.actividades).map(m => ({ nombre: m.nombre, cargo: m.cargo, actividades: m.actividades })),
+      actividades: d.items.map(a => ({ fecha: a.fecha, titulo: a.titulo, tipo: agendaMod.TIPOS[a.tipo], estado: a.estado, lugar: a.lugar, participantes: a.participantes, equipo: (a.equipo || []).map(x => (d.equipo.find(m => m.id === x) || {}).nombre).filter(Boolean), descripcion: a.descripcion.slice(0, 400), resultados: a.resultados.slice(0, 400), asistentes: a.asistentes, medios: a.medios, publicaciones: a.publicaciones, fotos: (a.fotos || []).length })).slice(0, 150),
     });
     await kv.set(`informe-agenda:${desde}:${hasta}`, JSON.stringify(texto), { ex: 90 * 86400 });
     res.json(texto);
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+}));
+// Colaboradores elegidos para aparecer en el informe de ese periodo.
+app.post('/api/agenda/informe/equipo', wrap(async (req, res) => {
+  const { desde, hasta, ids } = req.body;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde || '') || !/^\d{4}-\d{2}-\d{2}$/.test(hasta || '') || !Array.isArray(ids)) return res.status(400).json({ error: 'Datos no válidos.' });
+  await kv.set(`informe-agenda-equipo:${desde}:${hasta}`, JSON.stringify(ids.map(String).slice(0, 60)), { ex: 365 * 86400 });
+  res.json({ ok: true });
 }));
 // Texto editado a mano por la jefa de prensa (se guarda para ese periodo).
 app.post('/api/agenda/informe/texto', wrap(async (req, res) => {

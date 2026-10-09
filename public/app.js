@@ -94,7 +94,7 @@ const App = {
     $('#delay-lbl').textContent = App.estado.delay;
     $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) App.go(b.dataset.v); });
     addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && !$('#v-' + v)?.classList.contains('on')) App.go(v); });
-    App.go(location.hash.slice(1) || 'inicio');
+    if (location.hash === '#firma') { App.go('ajustes'); setTimeout(Firma.abrir, 300); } else App.go(location.hash.slice(1) || 'inicio');
     if (App.estado.bienvenida) App.bienvenida(App.estado.bienvenida);
     App.badge();
     if (App.estado.rol !== 'diseno') { App.watchQueue(); setInterval(App.watchQueue, 20000); }
@@ -977,6 +977,108 @@ const Cal = {
   async borrar(id) { if (!confirm('¿Eliminar del calendario?')) return; await api('/api/calendario/' + id, { method: 'DELETE' }); Modal.close(); Cal.load(); },
 };
 
+/* ---------------- Equipo de trabajo ---------------- */
+const iniciales = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+const avatar = (m, size = 30) => `<span class="av" style="--c:${esc(m.color || C.violet)};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px" title="${esc(m.nombre)} · ${esc(m.cargo)}">${esc(iniciales(m.nombre))}</span>`;
+
+const Equipo = {
+  lista: [],
+  async cargar() { Equipo.lista = await api('/api/equipo').catch(() => []); return Equipo.lista; },
+  activos: () => Equipo.lista.filter(m => m.activo !== false),
+  async abrir() {
+    await Equipo.cargar();
+    Modal.open(`${Modal.head('Equipo de trabajo')}
+      <p class="muted" style="margin-top:0">Las personas que acompañan a la jefatura. Al crear una actividad las eliges con un toque y aparecen en el informe de gestión.</p>
+      <div id="eq-lista">${Equipo.listaHtml()}</div>
+      <div class="row" style="margin-top:14px"><button class="btn hot" type="button" onclick="Equipo.form()">+ Agregar colaborador</button></div>`, 'sm');
+  },
+  listaHtml() {
+    return Equipo.lista.length ? Equipo.lista.map(m => `<div class="eq ${m.activo === false ? 'off' : ''}">${avatar(m, 40)}<div style="min-width:0;flex:1"><b>${esc(m.nombre)}</b><div class="small muted">${esc(m.cargo)}${m.telefono ? ' · ' + esc(m.telefono) : ''}${m.activo === false ? ' · inactivo' : ''}</div></div><button class="btn sm alt" type="button" onclick="Equipo.form('${m.id}')">Editar</button></div>`).join('') : '<div class="empty">Aún no hay colaboradores. Agrega a las personas de tu equipo.</div>';
+  },
+  form(id, alGuardar) {
+    const m = id ? Equipo.lista.find(x => x.id === id) : { cargo: 'Periodista', activo: true };
+    Modal.open(`${Modal.head(id ? 'Editar colaborador' : 'Nuevo colaborador')}
+      <form onsubmit="return Equipo.guardar(event)">
+        <input type="hidden" name="id" value="${esc(m.id || '')}">
+        <label>Nombre completo</label><input type="text" name="nombre" required value="${esc(m.nombre || '')}" placeholder="Ej.: Haisa Rodríguez" autocomplete="off">
+        <label>Rol en el equipo</label><div class="cargos">${App.estado.cargos.map(c => `<label><input type="radio" name="cargo" value="${esc(c)}" ${c === m.cargo ? 'checked' : ''}> ${esc(c)}</label>`).join('')}</div>
+        <div class="grid g2"><div><label>Celular (opcional)</label><input type="text" inputmode="tel" name="telefono" value="${esc(m.telefono || '')}"></div><div><label>Correo (opcional)</label><input type="email" name="correo" value="${esc(m.correo || '')}"></div></div>
+        ${id ? `<label class="check"><input type="checkbox" name="activo" value="true" ${m.activo !== false ? 'checked' : ''}> Activo en el equipo</label>` : '<input type="hidden" name="activo" value="true">'}
+        <div class="row" style="margin-top:16px"><button class="btn hot" type="submit">Guardar</button>${id ? `<button class="btn danger" type="button" onclick="Equipo.borrar('${id}')">Eliminar</button>` : ''}<button class="btn alt" type="button" onclick="Equipo.volver()">Volver</button></div>
+      </form>`, 'sm');
+    Equipo.alGuardar = alGuardar || null;
+  },
+  volver() { if (Equipo.alGuardar) Equipo.alGuardar(null); else Equipo.abrir(); },
+  async guardar(ev) {
+    ev.preventDefault();
+    const b = Object.fromEntries(new FormData(ev.target)); b.activo = b.activo === 'true';
+    try { const m = await api('/api/equipo', { method: 'POST', body: b }); await Equipo.cargar(); toast('Colaborador guardado'); if (Equipo.alGuardar) Equipo.alGuardar(m); else Equipo.abrir(); if ($('#v-agenda').classList.contains('on')) Agenda.load(); }
+    catch (e) { toast(e.message); }
+    return false;
+  },
+  async borrar(id) {
+    const m = Equipo.lista.find(x => x.id === id);
+    if (!(await confirmar({ titulo: `¿Eliminar a ${m ? m.nombre : 'este colaborador'}?`, texto: 'Si solo dejó de trabajar con ustedes, mejor márcalo como inactivo: así sigue apareciendo en informes anteriores.' }))) return Equipo.abrir();
+    await api('/api/equipo/' + id, { method: 'DELETE' }); await Equipo.cargar(); toast('Colaborador eliminado'); Equipo.abrir();
+  },
+};
+
+/* ---------------- Firma para los informes ---------------- */
+const Firma = {
+  async abrir() {
+    const p = await api('/api/perfil');
+    Firma.dato = p.firma || '';
+    Modal.open(`${Modal.head('Mi firma para los informes')}
+      <form id="fi-form" onsubmit="return Firma.guardar(event)">
+        <div class="grid g2"><div><label>Nombre completo</label><input type="text" name="nombreCompleto" value="${esc(p.nombreCompleto || p.nombre || '')}" placeholder="Ej.: Ligia …"></div><div><label>Cargo</label><input type="text" name="cargo" value="${esc(p.cargo || 'Jefe de Prensa')}"></div></div>
+        <label>Firma</label>
+        <div class="firma-pad"><canvas id="fi-canvas" width="900" height="300" aria-label="Espacio para firmar"></canvas><span class="firma-hint" id="fi-hint">Firma aquí con el dedo o el mouse</span></div>
+        <div class="row" style="margin-top:8px"><button class="btn sm alt" type="button" onclick="Firma.limpiar()">Borrar</button><label class="btn sm alt" style="margin:0">Subir imagen de la firma<input type="file" accept="image/*" hidden onchange="Firma.subir(this)"></label></div>
+        <h3>¿Quién recibe el informe?</h3>
+        <div class="grid g2"><div><label>Nombre</label><input type="text" name="recibeNombre" value="${esc(p.recibeNombre || '')}" placeholder="Ej.: Despacho del Alcalde"></div><div><label>Cargo</label><input type="text" name="recibeCargo" value="${esc(p.recibeCargo || '')}" placeholder="Ej.: Alcalde municipal"></div></div>
+        <div class="row" style="margin-top:16px"><button class="btn hot" type="submit">Guardar firma</button></div>
+      </form>`, 'sm');
+    Firma.pad();
+  },
+  pad() {
+    const cv = $('#fi-canvas'), ctx = cv.getContext('2d');
+    ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1f1d3d';
+    Firma.trazo = false;
+    if (Firma.dato) { const img = new Image(); img.onload = () => { ctx.drawImage(img, 0, 0, cv.width, cv.height); $('#fi-hint').style.display = 'none'; }; img.src = Firma.dato; }
+    const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+    let dibujando = false;
+    cv.onpointerdown = e => { dibujando = true; Firma.trazo = true; $('#fi-hint').style.display = 'none'; cv.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.moveTo(...pos(e)); };
+    cv.onpointermove = e => { if (!dibujando) return; ctx.lineTo(...pos(e)); ctx.stroke(); };
+    cv.onpointerup = cv.onpointercancel = () => { dibujando = false; };
+  },
+  limpiar() { const cv = $('#fi-canvas'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); Firma.dato = ''; Firma.trazo = false; $('#fi-hint').style.display = ''; },
+  subir(input) {
+    const f = input.files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => { const cv = $('#fi-canvas'), ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height); const s = Math.min(cv.width / img.width, cv.height / img.height); const w = img.width * s, h = img.height * s; ctx.drawImage(img, (cv.width - w) / 2, (cv.height - h) / 2, w, h); Firma.trazo = true; $('#fi-hint').style.display = 'none'; URL.revokeObjectURL(img.src); };
+    img.src = URL.createObjectURL(f);
+  },
+  // Recorta los bordes vacíos para que la firma se vea centrada en el informe.
+  exportar() {
+    const cv = $('#fi-canvas'), ctx = cv.getContext('2d');
+    const { data, width, height } = ctx.getImageData(0, 0, cv.width, cv.height);
+    let x0 = width, y0 = height, x1 = 0, y1 = 0;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (data[(y * width + x) * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 <= x0) return '';
+    const m = 10, out = document.createElement('canvas');
+    out.width = x1 - x0 + 2 * m; out.height = y1 - y0 + 2 * m;
+    out.getContext('2d').drawImage(cv, x0 - m, y0 - m, out.width, out.height, 0, 0, out.width, out.height);
+    return out.toDataURL('image/png');
+  },
+  async guardar(ev) {
+    ev.preventDefault();
+    const b = Object.fromEntries(new FormData(ev.target));
+    b.firma = Firma.trazo ? Firma.exportar() : Firma.dato;
+    try { await api('/api/perfil', { method: 'POST', body: b }); Modal.close(); toast('Firma guardada ✓ Aparecerá en tus informes.'); if (App.permitido('ajustes') && $('#v-ajustes').classList.contains('on')) Ajustes.load(); } catch (e) { toast(e.message); }
+    return false;
+  },
+};
+
 /* ---------------- Agenda de gestión ---------------- */
 // Miniatura liviana cuando la foto está en Cloudinary.
 const mini = (url, w = 400) => /res\.cloudinary\.com\/.+\/upload\//.test(url) ? url.replace('/upload/', `/upload/w_${w},h_${w},c_fill,q_auto,f_auto/`) : url;
@@ -1001,7 +1103,7 @@ const Agenda = {
     if (Agenda.vista !== 'rango') { $('#ag-desde').value = d; $('#ag-hasta').value = h; }
     const puede = App.puede();
     $('#ag-nueva').style.display = puede ? '' : 'none'; $('#ag-fab').style.visibility = puede ? '' : 'hidden';
-    Agenda.items = await api(`/api/agenda?desde=${d}&hasta=${h}`);
+    [Agenda.items] = await Promise.all([api(`/api/agenda?desde=${d}&hasta=${h}`), Equipo.cargar()]);
     const n = e => Agenda.items.filter(a => a.estado === e).length;
     const efectivas = Agenda.items.length - n('cancelada');
     $('#ag-kpis').innerHTML = [
@@ -1017,7 +1119,8 @@ const Agenda = {
     const T = App.estado.agendaTipos, E = App.estado.agendaEstados;
     $('#ag-lista').innerHTML = Object.entries(dias).map(([f, acts]) => `<div class="ag-dia"><h3 class="${f === hoy ? 'hoy' : ''}">${f === hoy ? 'Hoy · ' : ''}${new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
       ${acts.map(a => `<div class="act ${a.estado}"><div class="t"><div style="min-width:0"><b>${a.hora ? a.hora + ' · ' : ''}${esc(a.titulo)}</b>
-        <div class="meta">${esc(T[a.tipo])}${a.lugar ? ' · ' + esc(a.lugar) : ''}${a.participantes ? ' · ' + esc(a.participantes) : ''}</div></div>
+        <div class="meta">${esc(T[a.tipo])}${a.lugar ? ' · ' + esc(a.lugar) : ''}${a.participantes ? ' · ' + esc(a.participantes) : ''}</div>
+        ${(a.equipo || []).length ? `<div class="avs">${a.equipo.map(x => Equipo.lista.find(m => m.id === x)).filter(Boolean).map(m => avatar(m, 26)).join('')}</div>` : ''}</div>
         <div class="row" style="flex-wrap:nowrap">${a.prioridad !== 'normal' ? `<span class="badge prio-${a.prioridad}">${a.prioridad === 'urgente' ? 'Urgente' : 'Alta'}</span>` : ''}<span class="badge ${a.estado === 'realizada' ? 'ok' : a.estado === 'cancelada' ? '' : a.estado === 'reprogramada' ? 'warn' : 'live'}" style="${a.estado === 'programada' ? 'background:#ece9fb;color:var(--navy)' : ''}">${esc(E[a.estado])}</span></div></div>
         ${a.resultados ? `<div class="res">✓ ${esc(a.resultados)}</div>` : a.descripcion ? `<div class="res muted">${esc(a.descripcion)}</div>` : ''}
         ${[a.asistentes ? `${nf(a.asistentes)} asistentes` : '', a.medios ? `${nf(a.medios)} medios` : '', a.publicaciones ? `${nf(a.publicaciones)} publicaciones` : '', (a.enlaces || []).length ? `${a.enlaces.length} enlaces` : ''].filter(Boolean).length ? `<div class="meta" style="margin-top:6px">${[a.asistentes ? `👥 ${nf(a.asistentes)} asistentes` : '', a.medios ? `🎙 ${nf(a.medios)} medios` : '', a.publicaciones ? `📣 ${nf(a.publicaciones)} publicaciones` : '', (a.enlaces || []).length ? `🔗 ${a.enlaces.length} enlaces` : ''].filter(Boolean).join(' · ')}</div>` : ''}
@@ -1060,8 +1163,8 @@ const Agenda = {
     if (r === null) return;
     try { await api(`/api/agenda/${id}/estado`, { method: 'POST', body: { estado: 'realizada', resultados: r } }); toast('Marcada como realizada ✓'); Agenda.load(); } catch (e) { toast(e.message); }
   },
-  editar(id) {
-    const a = id ? Agenda.items.find(x => x.id === id) : { fecha: Agenda.iso(new Date()), tipo: 'cubrimiento', estado: 'programada', prioridad: 'normal', fotos: [] };
+  editar(id, borrador) {
+    const a = borrador || (id ? Agenda.items.find(x => x.id === id) : { fecha: Agenda.iso(new Date()), tipo: 'cubrimiento', estado: 'programada', prioridad: 'normal', fotos: [], equipo: [] });
     Agenda.fotosForm = [...(a.fotos || [])];
     const T = App.estado.agendaTipos, E = App.estado.agendaEstados;
     Modal.open(`${Modal.head(id ? 'Editar actividad' : 'Nueva actividad')}
@@ -1073,7 +1176,9 @@ const Agenda = {
         <div class="grid g2"><div><label>Estado</label><select name="estado">${Object.entries(E).map(([k, v]) => `<option value="${k}" ${k === a.estado ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
           <div><label>Prioridad</label><select name="prioridad"><option value="normal" ${a.prioridad === 'normal' ? 'selected' : ''}>Normal</option><option value="alta" ${a.prioridad === 'alta' ? 'selected' : ''}>Alta</option><option value="urgente" ${a.prioridad === 'urgente' ? 'selected' : ''}>Urgente</option></select></div></div>
         <label>Lugar</label><input type="text" name="lugar" value="${esc(a.lugar || '')}" placeholder="Ej.: Parque principal">
-        <label>Con quién (participantes, voceros, medios)</label><input type="text" name="participantes" value="${esc(a.participantes || '')}">
+        <label>Equipo que participa</label>
+        <div class="chips" id="ag-equipo">${Agenda.chipsHtml(a.equipo || [])}</div>
+        <label>Otros participantes (voceros, invitados, medios)</label><input type="text" name="participantes" value="${esc(a.participantes || '')}">
         <label>Descripción / objetivo</label><textarea name="descripcion" style="min-height:70px">${esc(a.descripcion || '')}</textarea>
         <label>Resultados (lo que se logró)</label><textarea name="resultados" style="min-height:70px" placeholder="Ej.: Se anunció la programación; asistieron 8 medios; 3 notas publicadas.">${esc(a.resultados || '')}</textarea>
         <div class="grid g3 nums"><div><label>Asistentes</label><input type="number" inputmode="numeric" min="0" name="asistentes" value="${a.asistentes ?? ''}"></div><div><label>Medios</label><input type="number" inputmode="numeric" min="0" name="medios" value="${a.medios ?? ''}"></div><div><label>Publicaciones</label><input type="number" inputmode="numeric" min="0" name="publicaciones" value="${a.publicaciones ?? ''}"></div></div>
@@ -1084,6 +1189,23 @@ const Agenda = {
         <div class="row" style="margin-top:18px"><button class="btn hot" type="submit" id="ag-btn">Guardar</button>${id && App.puede() ? `<button class="btn danger" type="button" onclick="Modal.close();Agenda.borrar('${id}')">🗑 Eliminar</button>` : ''}</div>
       </form>`, 'sm');
     Agenda.pintarFotos();
+  },
+  chipsHtml(sel) {
+    const act = Equipo.lista.filter(m => m.activo !== false || sel.includes(m.id));
+    return act.map(m => `<label class="chip"><input type="checkbox" name="equipo" value="${m.id}" ${sel.includes(m.id) ? 'checked' : ''}>${avatar(m, 22)} ${esc(m.nombre.split(' ')[0])}<span class="muted"> · ${esc(m.cargo)}</span></label>`).join('') +
+      `<button type="button" class="chip add" onclick="Agenda.nuevoColaborador()">+ Colaborador</button>`;
+  },
+  // Crea un colaborador sin perder lo escrito en la actividad.
+  nuevoColaborador() {
+    const borrador = Object.fromEntries(new FormData($('#ag-form')));
+    borrador.equipo = [...$('#ag-form').querySelectorAll('[name=equipo]:checked')].map(i => i.value);
+    borrador.fotos = Agenda.fotosForm;
+    Equipo.form(null, m => { Agenda.editarBorrador(borrador, m); });
+  },
+  editarBorrador(b, nuevo) {
+    if (nuevo) b.equipo = [...(b.equipo || []), nuevo.id];
+    const prev = b.id ? Agenda.items.find(x => x.id === b.id) : null;
+    Agenda.editar(b.id || null, { ...(prev || {}), ...b, enlaces: String(b.enlaces || '').split(/\s+/).filter(Boolean) });
   },
   pintarFotos() { $('#ag-fotos').innerHTML = Agenda.fotosForm.map((f, i) => `<div><img src="${esc(mini(f.url, 160))}" alt=""><button type="button" onclick="Agenda.fotosForm.splice(${i},1);Agenda.pintarFotos()" aria-label="Quitar">×</button></div>`).join(''); },
   async fotosEnForm(input) {
@@ -1097,6 +1219,7 @@ const Agenda = {
     ev.preventDefault();
     const body = Object.fromEntries(new FormData(ev.target));
     body.fotos = Agenda.fotosForm;
+    body.equipo = [...ev.target.querySelectorAll('[name=equipo]:checked')].map(i => i.value);
     try { await api('/api/agenda', { method: 'POST', body }); Modal.close(); toast('Actividad guardada'); Agenda.load(); } catch (e) { toast(e.message); }
     return false;
   },
@@ -1132,6 +1255,7 @@ const Agenda = {
 const Ajustes = {
   async load() {
     App.ajustes();
+    api('/api/perfil').then(p => { $('#firma-estado').innerHTML = p.firma ? `<img src="${p.firma}" alt="Firma" class="firma-mini"><div class="small muted">${esc(p.nombreCompleto || p.nombre)} · ${esc(p.cargo || '')}</div>` : '<p class="muted">Aún no has agregado tu firma.</p>'; }).catch(() => {});
     const [us, rs] = await Promise.all([api('/api/usuarios'), api('/api/remitentes')]);
     App.estado.remitentes = rs;
     Ajustes.us = us; Ajustes.rs = rs;
