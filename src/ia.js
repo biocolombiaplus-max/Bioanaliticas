@@ -205,4 +205,39 @@ Usa {{nombre}} en el saludo. Asunto de máximo 55 caracteres, sin mayúsculas so
   });
 }
 
-module.exports = { configured, generarContenido, analizarMetricas, revisarPieza, redactarCorreo, MODEL };
+const INFORME_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['titulo', 'resumen_ejecutivo', 'logros', 'recomendaciones', 'cierre'],
+  properties: {
+    titulo: { type: 'string' },
+    resumen_ejecutivo: { type: 'string' },
+    logros: { type: 'array', items: { type: 'string' } },
+    recomendaciones: { type: 'array', items: { type: 'string' } },
+    cierre: { type: 'string' },
+  },
+};
+
+// Redacta el informe de gestión de la agenda a partir de las actividades del periodo.
+async function informeAgenda({ desde, hasta, cifras, actividades, enfoque }) {
+  return ask({
+    content: [{
+      type: 'text',
+      text: `Redacta el informe ejecutivo de gestión de la jefatura de prensa para el periodo ${desde} a ${hasta}.
+Tono: institucional, claro y orientado a resultados, para presentar ante el despacho del alcalde y los entes de control. Usa solo los datos entregados; no inventes cifras, nombres ni hechos.
+${enfoque ? 'Enfoque pedido por la jefa de prensa: ' + enfoque : ''}
+- resumen_ejecutivo: 2 párrafos (separados por una línea en blanco) con el balance del periodo y su impacto para la comunidad.
+- logros: 4 a 7 logros concretos, cada uno de una o dos frases, citando la actividad y su resultado.
+- recomendaciones: 3 a 5 acciones para el siguiente periodo.
+- cierre: una frase final.
+
+Cifras: ${JSON.stringify(cifras)}
+Actividades: ${JSON.stringify(actividades)}`,
+    }],
+    schema: INFORME_SCHEMA,
+    effort: 'medium',
+    maxTokens: 8000,
+  });
+}
+
+module.exports = { configured, generarContenido, analizarMetricas, revisarPieza, redactarCorreo, informeAgenda, MODEL };

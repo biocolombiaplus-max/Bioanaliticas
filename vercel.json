@@ -18,6 +18,6 @@
     { "path": "/api/cron/diario", "schedule": "0 12 * * *" }
   ],
   "headers": [
-    { "source": "/(app|informe).html", "headers": [{ "key": "Cache-Control", "value": "no-store" }, { "key": "X-Robots-Tag", "value": "noindex" }] }
+    { "source": "/(app|informe|informe-agenda).html", "headers": [{ "key": "Cache-Control", "value": "no-store" }, { "key": "X-Robots-Tag", "value": "noindex" }] }
   ]
 }

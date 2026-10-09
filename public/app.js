@@ -63,7 +63,7 @@ const App = {
     document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
     document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
     history.replaceState(null, '', '#' + v);
-    ({ inicio: Inicio.load, piezas: Piezas.load, calendario: Cal.load, analizar: Analizar.load, resumen: App.refresh, estudio: Studio.load, correos: Mail.load, contactos: Contacts.load, instagram: IG.account, informes: Reports.load, ajustes: Ajustes.load })[v]?.();
+    ({ inicio: Inicio.load, agenda: Agenda.load, piezas: Piezas.load, calendario: Cal.load, analizar: Analizar.load, resumen: App.refresh, estudio: Studio.load, correos: Mail.load, contactos: Contacts.load, instagram: IG.account, informes: Reports.load, ajustes: Ajustes.load })[v]?.();
     if (window.innerWidth < 860) document.querySelector('.view.on')?.scrollIntoView();
     window.scrollTo(0, 0);
   },
@@ -755,11 +755,13 @@ const Inicio = {
     ].join('');
     const acciones = diseno
       ? [['Subir una pieza', 'piezas', '+', C.orange, 'Piezas.nueva()'], ['Ver calendario', 'calendario', '▦', C.violet]]
-      : [['Revisar piezas', 'piezas', '✓', C.orange], ['Nuevo correo', 'correos', '✉', C.blue, "App.go('correos');Mail.nueva()"], ['Analizar un enlace', 'analizar', '↗', C.violet], ['Subir una base', 'contactos', '⇪', C.green], ['Planear publicación', 'calendario', '▦', C.grape]];
+      : [['Agregar a la agenda', 'agenda', '+', C.green, "App.go('agenda');Agenda.editar()"], ['Revisar piezas', 'piezas', '✓', C.orange], ['Nuevo correo', 'correos', '✉', C.blue, "App.go('correos');Mail.nueva()"], ['Analizar un enlace', 'analizar', '↗', C.violet], ['Planear publicación', 'calendario', '▦', C.grape]];
     $('#hoy-acciones').innerHTML = acciones.map(([t, v, i, c, fn]) => `<button type="button" onclick="${fn || `App.go('${v}')`}"><i style="background:${c}">${i}</i>${t}</button>`).join('');
     const est = App.estado.estadosPieza;
     $('#hoy-piezas').innerHTML = h.piezas.recientes.length ? h.piezas.recientes.map(p => `<div class="pcard" onclick="Piezas.abrir('${p.id}')"><div class="th">${p.miniatura && p.miniatura.tipo === 'imagen' ? `<img src="${esc(p.miniatura.url)}" alt="" loading="lazy">` : p.miniatura && p.miniatura.tipo === 'video' ? '▶' : '▢'}</div><div style="min-width:0"><b>${esc(p.titulo)}</b><div class="small muted">${esc(p.autorNombre || '')} · ${esc(p.canal)} · ${fdate(p.actualizado)}</div></div><span class="badge st-${p.estado}">${esc(est[p.estado])}</span></div>`).join('') : '<div class="empty">Aún no hay piezas.</div>';
-    $('#hoy-agenda').innerHTML = Cal.listaHtml(h.agenda) || '<div class="empty">Nada programado esta semana. ¡Planea las publicaciones en el calendario!</div>';
+    const T = e.agendaTipos;
+    const mia = (h.miAgenda || []).map(a => { const d = new Date(a.fecha + 'T12:00:00'); return `<div class="ag"><div class="d">${d.toLocaleDateString('es-CO', { weekday: 'short' })}<b>${d.getDate()}</b></div><div style="min-width:0"><b>${esc(a.titulo)}</b><div class="small muted">${a.hora ? a.hora + ' · ' : ''}${esc(T[a.tipo] || '')}${a.lugar ? ' · ' + esc(a.lugar) : ''}</div></div><span class="badge ${a.estado === 'realizada' ? 'ok' : ''}">${esc(e.agendaEstados[a.estado])}</span></div>`; }).join('');
+    $('#hoy-agenda').innerHTML = (mia ? `<h3 style="margin-top:0">Mi agenda</h3>${mia}` : '') + (Cal.listaHtml(h.agenda) ? `<h3>Publicaciones programadas</h3>${Cal.listaHtml(h.agenda)}` : '') || '<div class="empty">Nada programado esta semana.</div>';
     $('#hoy-tips').innerHTML = diseno
       ? '<h2>Para que las piezas salgan a la primera</h2><ul class="f r"><li>Revisa fechas, horas y nombres contra la información oficial antes de subir.</li><li>Sube la pieza con el texto que la acompañará en redes: también se revisa.</li><li>Cuando te pidan cambios, sube la nueva versión en la misma pieza (no crees otra).</li></ul>'
       : '<h2>Rutina de una oficina de prensa de alto nivel</h2><ul class="f r"><li><b>Mañana:</b> revisa piezas pendientes y la agenda del día.</li><li><b>Antes de publicar:</b> toda pieza pasa por la lista de verificación (ortografía, datos, logos).</li><li><b>Después de publicar:</b> analiza el enlace a las 24 horas y responde preguntas en comentarios.</li><li><b>Cada semana:</b> envía el boletín a la base y comparte el informe ejecutivo con el despacho.</li></ul>';
@@ -937,6 +939,131 @@ const Cal = {
     return false;
   },
   async borrar(id) { if (!confirm('¿Eliminar del calendario?')) return; await api('/api/calendario/' + id, { method: 'DELETE' }); Modal.close(); Cal.load(); },
+};
+
+/* ---------------- Agenda de gestión ---------------- */
+// Miniatura liviana cuando la foto está en Cloudinary.
+const mini = (url, w = 400) => /res\.cloudinary\.com\/.+\/upload\//.test(url) ? url.replace('/upload/', `/upload/w_${w},h_${w},c_fill,q_auto,f_auto/`) : url;
+
+const Agenda = {
+  vista: 'semana',
+  items: [],
+  iso: d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10),
+  periodo() {
+    const hoy = new Date();
+    const iso = Agenda.iso;
+    if (Agenda.vista === 'hoy') return [iso(hoy), iso(hoy)];
+    if (Agenda.vista === 'semana') { const l = new Date(hoy); l.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7)); const d = new Date(l); d.setDate(l.getDate() + 6); return [iso(l), iso(d)]; }
+    if (Agenda.vista === 'proximas') { const d = new Date(hoy); d.setDate(hoy.getDate() + 30); return [iso(hoy), iso(d)]; }
+    if (Agenda.vista === 'mes') return [iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), iso(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0))];
+    return [$('#ag-desde').value, $('#ag-hasta').value];
+  },
+  async load() {
+    const vistas = { hoy: 'Hoy', semana: 'Esta semana', proximas: 'Próximos 30 días', mes: 'Este mes' };
+    $('#ag-tabs').innerHTML = Object.entries(vistas).map(([k, v]) => `<button class="${Agenda.vista === k ? 'on' : ''}" onclick="Agenda.vista='${k}';Agenda.load()">${v}</button>`).join('');
+    const [d, h] = Agenda.periodo();
+    if (Agenda.vista !== 'rango') { $('#ag-desde').value = d; $('#ag-hasta').value = h; }
+    const puede = App.puede();
+    $('#ag-nueva').style.display = puede ? '' : 'none'; $('#ag-fab').style.visibility = puede ? '' : 'hidden';
+    Agenda.items = await api(`/api/agenda?desde=${d}&hasta=${h}`);
+    const n = e => Agenda.items.filter(a => a.estado === e).length;
+    const efectivas = Agenda.items.length - n('cancelada');
+    $('#ag-kpis').innerHTML = [
+      kpi('Actividades', nf(Agenda.items.length), 'En el periodo', C.violet),
+      kpi('Realizadas', nf(n('realizada')), efectivas ? `${Math.round(100 * n('realizada') / efectivas)}% de cumplimiento` : '', C.green),
+      kpi('Pendientes', nf(n('programada') + n('reprogramada')), 'Por realizar o registrar', C.orange),
+      kpi('Soportes', nf(Agenda.items.reduce((s, a) => s + (a.fotos || []).length, 0)), 'Fotos de actividades', C.blue),
+    ].join('');
+    if (!Agenda.items.length) { $('#ag-lista').innerHTML = `<div class="card empty">No hay actividades en este periodo.${puede ? ' <a href="#" onclick="Agenda.editar();return false">Agrega la primera</a>.' : ''}</div>`; return; }
+    const hoy = Agenda.iso(new Date());
+    const dias = {};
+    for (const a of Agenda.items) (dias[a.fecha] ||= []).push(a);
+    const T = App.estado.agendaTipos, E = App.estado.agendaEstados;
+    $('#ag-lista').innerHTML = Object.entries(dias).map(([f, acts]) => `<div class="ag-dia"><h3 class="${f === hoy ? 'hoy' : ''}">${f === hoy ? 'Hoy · ' : ''}${new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+      ${acts.map(a => `<div class="act ${a.estado}"><div class="t"><div style="min-width:0"><b>${a.hora ? a.hora + ' · ' : ''}${esc(a.titulo)}</b>
+        <div class="meta">${esc(T[a.tipo])}${a.lugar ? ' · ' + esc(a.lugar) : ''}${a.participantes ? ' · ' + esc(a.participantes) : ''}</div></div>
+        <div class="row" style="flex-wrap:nowrap">${a.prioridad !== 'normal' ? `<span class="badge prio-${a.prioridad}">${a.prioridad === 'urgente' ? 'Urgente' : 'Alta'}</span>` : ''}<span class="badge ${a.estado === 'realizada' ? 'ok' : a.estado === 'cancelada' ? '' : a.estado === 'reprogramada' ? 'warn' : 'live'}" style="${a.estado === 'programada' ? 'background:#ece9fb;color:var(--navy)' : ''}">${esc(E[a.estado])}</span></div></div>
+        ${a.resultados ? `<div class="res">✓ ${esc(a.resultados)}</div>` : a.descripcion ? `<div class="res muted">${esc(a.descripcion)}</div>` : ''}
+        ${[a.asistentes ? `${nf(a.asistentes)} asistentes` : '', a.medios ? `${nf(a.medios)} medios` : '', a.publicaciones ? `${nf(a.publicaciones)} publicaciones` : '', (a.enlaces || []).length ? `${a.enlaces.length} enlaces` : ''].filter(Boolean).length ? `<div class="meta" style="margin-top:6px">${[a.asistentes ? `👥 ${nf(a.asistentes)} asistentes` : '', a.medios ? `🎙 ${nf(a.medios)} medios` : '', a.publicaciones ? `📣 ${nf(a.publicaciones)} publicaciones` : '', (a.enlaces || []).length ? `🔗 ${a.enlaces.length} enlaces` : ''].filter(Boolean).join(' · ')}</div>` : ''}
+        ${(a.fotos || []).length ? `<div class="fotos">${a.fotos.map(f => `<img src="${esc(mini(f.url, 160))}" alt="" loading="lazy" onclick="window.open('${esc(f.url)}','_blank')">`).join('')}</div>` : ''}
+        ${puede ? `<div class="acc">${a.estado !== 'realizada' ? `<button class="btn sm" style="background:var(--good)" onclick="Agenda.realizada('${a.id}')">✓ Realizada</button>` : ''}
+          <label class="btn sm alt" style="margin:0">📷 Fotos<input type="file" accept="image/*" multiple hidden onchange="Agenda.fotos('${a.id}', this)"></label>
+          <button class="btn sm alt" onclick="Agenda.editar('${a.id}')">Editar</button></div>` : ''}
+      </div>`).join('')}</div>`).join('');
+  },
+  rango() { if (!$('#ag-desde').value || !$('#ag-hasta').value) return toast('Elige las dos fechas.'); Agenda.vista = 'rango'; Agenda.load(); },
+  informe() {
+    const d = $('#ag-desde').value, h = $('#ag-hasta').value;
+    if (!d || !h) return toast('Elige el rango de fechas del informe.');
+    if (d > h) return toast('La fecha inicial debe ser anterior a la final.');
+    window.open(`/informe-agenda.html?desde=${d}&hasta=${h}`, '_blank');
+  },
+  async subirFotos(files, onProgress) {
+    const out = [];
+    let i = 0;
+    for (const f of [...files].filter(x => x.type.startsWith('image/'))) {
+      const { blob } = await compress(f, 2000, 0.85);
+      const file = new File([blob], (f.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+      const r = await Archivo.subir(file, null, 'agenda');
+      out.push({ url: r.url });
+      onProgress && onProgress(++i);
+    }
+    return out;
+  },
+  async fotos(id, input) {
+    const files = input.files; if (!files.length) return;
+    toast(`Subiendo ${files.length} foto(s)…`);
+    try { const fotos = await Agenda.subirFotos(files); await api(`/api/agenda/${id}/fotos`, { method: 'POST', body: { fotos } }); toast('Fotos guardadas como soporte'); Agenda.load(); }
+    catch (e) { toast(e.message); }
+    input.value = '';
+  },
+  async realizada(id) {
+    const a = Agenda.items.find(x => x.id === id);
+    const r = prompt('¿Qué se logró? (opcional, una o dos frases para el informe)', a.resultados || '');
+    if (r === null) return;
+    try { await api(`/api/agenda/${id}/estado`, { method: 'POST', body: { estado: 'realizada', resultados: r } }); toast('Marcada como realizada ✓'); Agenda.load(); } catch (e) { toast(e.message); }
+  },
+  editar(id) {
+    const a = id ? Agenda.items.find(x => x.id === id) : { fecha: Agenda.iso(new Date()), tipo: 'cubrimiento', estado: 'programada', prioridad: 'normal', fotos: [] };
+    Agenda.fotosForm = [...(a.fotos || [])];
+    const T = App.estado.agendaTipos, E = App.estado.agendaEstados;
+    Modal.open(`${Modal.head(id ? 'Editar actividad' : 'Nueva actividad')}
+      <form id="ag-form" onsubmit="return Agenda.guardar(event)">
+        <input type="hidden" name="id" value="${esc(a.id || '')}">
+        <label>¿Qué actividad es?</label><input type="text" name="titulo" required value="${esc(a.titulo || '')}" placeholder="Ej.: Rueda de prensa Feria de la Uva">
+        <div class="grid g3"><div><label>Fecha</label><input type="date" name="fecha" required value="${esc(a.fecha)}"></div><div><label>Hora</label><input type="time" name="hora" value="${esc(a.hora || '')}"></div><div><label>Hasta</label><input type="time" name="horaFin" value="${esc(a.horaFin || '')}"></div></div>
+        <label>Tipo</label><div class="tipos-grid">${Object.entries(T).map(([k, v]) => `<label><input type="radio" name="tipo" value="${k}" ${k === a.tipo ? 'checked' : ''}> ${esc(v)}</label>`).join('')}</div>
+        <div class="grid g2"><div><label>Estado</label><select name="estado">${Object.entries(E).map(([k, v]) => `<option value="${k}" ${k === a.estado ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+          <div><label>Prioridad</label><select name="prioridad"><option value="normal" ${a.prioridad === 'normal' ? 'selected' : ''}>Normal</option><option value="alta" ${a.prioridad === 'alta' ? 'selected' : ''}>Alta</option><option value="urgente" ${a.prioridad === 'urgente' ? 'selected' : ''}>Urgente</option></select></div></div>
+        <label>Lugar</label><input type="text" name="lugar" value="${esc(a.lugar || '')}" placeholder="Ej.: Parque principal">
+        <label>Con quién (participantes, voceros, medios)</label><input type="text" name="participantes" value="${esc(a.participantes || '')}">
+        <label>Descripción / objetivo</label><textarea name="descripcion" style="min-height:70px">${esc(a.descripcion || '')}</textarea>
+        <label>Resultados (lo que se logró)</label><textarea name="resultados" style="min-height:70px" placeholder="Ej.: Se anunció la programación; asistieron 8 medios; 3 notas publicadas.">${esc(a.resultados || '')}</textarea>
+        <div class="grid g3"><div><label>Asistentes</label><input type="number" inputmode="numeric" min="0" name="asistentes" value="${a.asistentes ?? ''}"></div><div><label>Medios</label><input type="number" inputmode="numeric" min="0" name="medios" value="${a.medios ?? ''}"></div><div><label>Publicaciones</label><input type="number" inputmode="numeric" min="0" name="publicaciones" value="${a.publicaciones ?? ''}"></div></div>
+        <label>Enlaces de soporte (notas en medios, publicaciones), uno por línea</label><textarea name="enlaces" style="min-height:60px" placeholder="https://…">${esc((a.enlaces || []).join('\n'))}</textarea>
+        <label>Fotos de la actividad</label>
+        <div class="row"><label class="btn alt" style="margin:0">📷 Tomar o elegir fotos<input type="file" accept="image/*" multiple hidden onchange="Agenda.fotosEnForm(this)"></label><span class="small muted" id="ag-subiendo"></span></div>
+        <div class="fotos-prev" id="ag-fotos"></div>
+        <div class="row" style="margin-top:18px"><button class="btn hot" type="submit" id="ag-btn">Guardar</button>${id && App.puede() ? `<button class="btn danger" type="button" onclick="Agenda.borrar('${id}')">Eliminar</button>` : ''}</div>
+      </form>`, 'sm');
+    Agenda.pintarFotos();
+  },
+  pintarFotos() { $('#ag-fotos').innerHTML = Agenda.fotosForm.map((f, i) => `<div><img src="${esc(mini(f.url, 160))}" alt=""><button type="button" onclick="Agenda.fotosForm.splice(${i},1);Agenda.pintarFotos()" aria-label="Quitar">×</button></div>`).join(''); },
+  async fotosEnForm(input) {
+    const files = input.files; if (!files.length) return;
+    const b = $('#ag-btn'); b.disabled = true;
+    try { const n = files.length; const f = await Agenda.subirFotos(files, i => { $('#ag-subiendo').textContent = `Subiendo ${i} de ${n}…`; }); Agenda.fotosForm.push(...f); Agenda.pintarFotos(); $('#ag-subiendo').textContent = ''; }
+    catch (e) { toast(e.message); $('#ag-subiendo').textContent = ''; }
+    b.disabled = false; input.value = '';
+  },
+  async guardar(ev) {
+    ev.preventDefault();
+    const body = Object.fromEntries(new FormData(ev.target));
+    body.fotos = Agenda.fotosForm;
+    try { await api('/api/agenda', { method: 'POST', body }); Modal.close(); toast('Actividad guardada'); Agenda.load(); } catch (e) { toast(e.message); }
+    return false;
+  },
+  async borrar(id) { if (!confirm('¿Eliminar esta actividad?')) return; await api('/api/agenda/' + id, { method: 'DELETE' }); Modal.close(); Agenda.load(); },
 };
 
 /* ---------------- Ajustes: usuarios, remitentes y conexiones ---------------- */

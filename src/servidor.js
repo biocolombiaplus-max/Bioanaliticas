@@ -9,6 +9,7 @@ const { readRows, parseContacts, perfil, parseManual, EMAIL_RE } = require('./cs
 const usuarios = require('./usuarios');
 const remitentes = require('./remitentes');
 const oficina = require('./oficina');
+const agendaMod = require('./agenda');
 const { revisar: revisarAntispam } = require('./antispam');
 const mailer = require('./mailer');
 const ig = require('./instagram');
@@ -154,6 +155,8 @@ app.get('/api/estado', wrap(async (req, res) => {
     estadosPieza: oficina.ESTADOS_PIEZA,
     estadosCal: oficina.ESTADOS_CAL,
     checklist: oficina.CHECKLIST,
+    agendaTipos: agendaMod.TIPOS,
+    agendaEstados: agendaMod.ESTADOS,
     archivos: uploads.proveedor(),
     smtp: (await remitentes.listar()).length > 0,
     instagram: ig.configured(),
@@ -514,7 +517,7 @@ app.post('/api/archivos/token', wrap(async (req, res) => {
 }));
 // Con Cloudinary el navegador sube directo con una firma temporal generada aquí.
 app.post('/api/archivos/firma', wrap(async (req, res) => {
-  try { res.json(uploads.firmaSubida(req.body.carpeta === 'imagenes' ? 'imagenes' : 'piezas')); } catch (e) { res.status(400).json({ error: e.message }); }
+  try { res.json(uploads.firmaSubida(['imagenes', 'agenda'].includes(req.body.carpeta) ? req.body.carpeta : 'piezas')); } catch (e) { res.status(400).json({ error: e.message }); }
 }));
 // En local (sin Cloudinary ni Blob) se recibe el archivo directamente.
 app.post('/api/archivos', uploadLocal.single('archivo'), wrap(async (req, res) => {
@@ -571,6 +574,67 @@ app.post('/api/calendario', wrap(async (req, res) => {
 }));
 app.delete('/api/calendario/:id', wrap(async (req, res) => { await oficina.eliminarEvento(req.params.id); res.json({ ok: true }); }));
 
+// ---- Agenda de gestión ----
+app.get('/api/agenda', wrap(async (req, res) => res.json(await agendaMod.listar(req.query.desde, req.query.hasta))));
+app.post('/api/agenda', wrap(async (req, res) => {
+  try { res.json(await agendaMod.guardar(req.body, req.perfil)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/agenda/:id/fotos', wrap(async (req, res) => {
+  try { res.json(await agendaMod.agregarFotos(req.params.id, Array.isArray(req.body.fotos) ? req.body.fotos : [])); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.post('/api/agenda/:id/estado', wrap(async (req, res) => {
+  try { res.json(await agendaMod.cambiarEstado(req.params.id, req.body.estado, req.body.resultados)); } catch (e) { res.status(400).json({ error: e.message }); }
+}));
+app.delete('/api/agenda/:id', wrap(async (req, res) => { await agendaMod.eliminar(req.params.id); res.json({ ok: true }); }));
+
+// Datos del informe de gestión: agenda + publicaciones del calendario + piezas aprobadas + correos del periodo.
+async function datosInformeAgenda(desde, hasta) {
+  const items = await agendaMod.listar(desde, hasta);
+  const cifras = agendaMod.resumen(items);
+  const editorial = await oficina.listarEventos(desde, hasta);
+  const piezas = (await oficina.listarPiezas()).filter(p => ['aprobada', 'publicada'].includes(p.estado) && (p.revisadoEn || '').slice(0, 10) >= desde && (p.revisadoEn || '').slice(0, 10) <= hasta);
+  const camps = [];
+  for (const c of await mailer.campaigns.all()) {
+    const d = (c.iniciada || '').slice(0, 10);
+    if (d && d >= desde && d <= hasta) { const st = await mailer.campaignStats(c.id); camps.push({ nombre: c.nombre, enviados: st.enviados, abiertos: st.abiertos, clics: st.clics }); }
+  }
+  return { items, cifras, editorial, piezas: piezas.map(p => ({ titulo: p.titulo, canal: p.canal, estado: p.estado })), correos: camps };
+}
+app.get('/api/agenda/informe', wrap(async (req, res) => {
+  const { desde, hasta } = req.query;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde || '') || !/^\d{4}-\d{2}-\d{2}$/.test(hasta || '')) return res.status(400).json({ error: 'Elige las fechas del informe.' });
+  const d = await datosInformeAgenda(desde, hasta);
+  const guardado = await kv.get(`informe-agenda:${desde}:${hasta}`);
+  res.json({
+    desde, hasta, organizacion: process.env.ORG_NAME || 'Alcaldía de Villa del Rosario', generadoPor: req.perfil.nombre,
+    tipos: agendaMod.TIPOS, estados: agendaMod.ESTADOS, ia: ia.configured(),
+    ...d, texto: guardado ? JSON.parse(guardado) : agendaMod.narrativa(d.items, d.cifras, desde, hasta), textoIA: Boolean(guardado),
+  });
+}));
+app.post('/api/agenda/informe/ia', wrap(async (req, res) => {
+  const { desde, hasta, enfoque } = req.body;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde || '') || !/^\d{4}-\d{2}-\d{2}$/.test(hasta || '')) return res.status(400).json({ error: 'Fechas no válidas.' });
+  const d = await datosInformeAgenda(desde, hasta);
+  if (!d.items.length) return res.status(400).json({ error: 'No hay actividades en ese periodo.' });
+  try {
+    const texto = await ia.informeAgenda({
+      desde, hasta, enfoque: String(enfoque || '').slice(0, 500),
+      cifras: { ...d.cifras, publicacionesCalendario: d.editorial.length, piezasAprobadas: d.piezas.length, correos: d.correos },
+      actividades: d.items.map(a => ({ fecha: a.fecha, titulo: a.titulo, tipo: agendaMod.TIPOS[a.tipo], estado: a.estado, lugar: a.lugar, participantes: a.participantes, descripcion: a.descripcion.slice(0, 400), resultados: a.resultados.slice(0, 400), asistentes: a.asistentes, medios: a.medios, publicaciones: a.publicaciones, fotos: (a.fotos || []).length })).slice(0, 150),
+    });
+    await kv.set(`informe-agenda:${desde}:${hasta}`, JSON.stringify(texto), { ex: 90 * 86400 });
+    res.json(texto);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+}));
+// Texto editado a mano por la jefa de prensa (se guarda para ese periodo).
+app.post('/api/agenda/informe/texto', wrap(async (req, res) => {
+  const { desde, hasta, texto } = req.body;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde || '') || !/^\d{4}-\d{2}-\d{2}$/.test(hasta || '') || !texto) return res.status(400).json({ error: 'Datos no válidos.' });
+  const t = { titulo: String(texto.titulo || '').slice(0, 200), resumen_ejecutivo: String(texto.resumen_ejecutivo || '').slice(0, 5000), logros: (texto.logros || []).map(x => String(x).slice(0, 600)).slice(0, 12), recomendaciones: (texto.recomendaciones || []).map(x => String(x).slice(0, 600)).slice(0, 10), cierre: String(texto.cierre || '').slice(0, 800) };
+  await kv.set(`informe-agenda:${desde}:${hasta}`, JSON.stringify(t), { ex: 90 * 86400 });
+  res.json({ ok: true });
+}));
+
 // ---- Inicio: lo que necesita atención hoy ----
 app.get('/api/hoy', wrap(async (req, res) => {
   const hoy = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
@@ -592,6 +656,7 @@ app.get('/api/hoy', wrap(async (req, res) => {
     out.correo = env ? { nombre: env.nombre, stats: await mailer.campaignStats(env.id) } : null;
     out.contactos = await mailer.contacts.count();
     out.publicaciones = (await ig.posts.all()).length;
+    out.miAgenda = (await agendaMod.listar(hoy, en7)).filter(x => x.estado !== 'cancelada').slice(0, 10);
   }
   res.json(out);
 }));
