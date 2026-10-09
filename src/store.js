@@ -40,13 +40,19 @@ function redisBackend() {
 }
 
 function fileBackend() {
-  const dir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+  // En Vercel solo se puede escribir en /tmp (temporal): sirve para arrancar, pero conviene conectar Redis.
+  const dir = process.env.DATA_DIR || (process.env.VERCEL ? '/tmp/bioanaliticas' : path.join(__dirname, '..', 'data'));
   const file = path.join(dir, 'store.json');
-  fs.mkdirSync(dir, { recursive: true });
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { console.error('[store] sin carpeta de datos:', e.message); }
   let db = { h: {}, s: {}, l: {}, exp: {} };
   try { db = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* base nueva */ }
   let t = null;
-  const save = () => { if (!t) t = setTimeout(() => { t = null; fs.writeFileSync(file + '.tmp', JSON.stringify(db)); fs.renameSync(file + '.tmp', file); }, 200); };
+  const flush = () => {
+    t = null;
+    try { fs.writeFileSync(file + '.tmp', JSON.stringify(db)); fs.renameSync(file + '.tmp', file); }
+    catch (e) { console.error('[store] no se pudo guardar:', e.message); }
+  };
+  const save = () => { if (!t) t = setTimeout(flush, 200); };
   const alive = k => { if (db.exp[k] && db.exp[k] < Date.now()) { delete db.s[k]; delete db.exp[k]; } return k in db.s; };
   const H = k => (db.h[k] ||= {});
   const L = k => (db.l[k] ||= []);

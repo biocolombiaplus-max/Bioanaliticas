@@ -4,7 +4,7 @@ const path = require('path');
 const { id } = require('./store');
 
 const blobConfigured = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-const LOCAL_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..', 'data'), 'uploads');
+const LOCAL_DIR = path.join(process.env.DATA_DIR || (process.env.VERCEL ? '/tmp/bioanaliticas' : path.join(__dirname, '..', 'data')), 'uploads');
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
 
 async function guardarImagen(buffer, contentType, baseUrl) {
