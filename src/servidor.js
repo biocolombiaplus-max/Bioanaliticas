@@ -11,6 +11,7 @@ const ig = require('./instagram');
 const ia = require('./ia');
 const analysis = require('./analysis');
 const uploads = require('./uploads');
+const { mensajePara } = require('./bienvenida');
 const { DEFAULTS, esc } = require('./emailTemplate');
 
 const contenidos = col('contenidos');
@@ -127,9 +128,10 @@ app.get('/health', (req, res) => res.json({ ok: true, almacenamiento: kv.kind })
 // ---------------- API protegida ----------------
 app.use('/api', auth);
 
-app.get('/api/estado', (req, res) => {
+app.get('/api/estado', wrap(async (req, res) => {
   const c = mailer.cfg();
   res.json({
+    bienvenida: await mensajePara(req.user).catch(() => null),
     usuario: req.user,
     smtp: mailer.smtpConfigured(),
     instagram: ig.configured(),
@@ -147,7 +149,7 @@ app.get('/api/estado', (req, res) => {
     organizacion: process.env.ORG_NAME || 'Alcaldía de Villa del Rosario',
     defaults: DEFAULTS,
   });
-});
+}));
 
 // ---- Contactos ----
 app.get('/api/contactos', wrap(async (req, res) => {

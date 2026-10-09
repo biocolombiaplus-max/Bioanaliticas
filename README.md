@@ -9,6 +9,7 @@ Herramienta de gestión para la oficina de prensa. Empieza con las **Ferias y Fi
 | **Estudio de contenidos (IA)** | Subes una imagen y escribes el tema. Recibes textos para Instagram, Facebook, X y WhatsApp, una nota de prensa, el SEO local (título, meta descripción, slug, palabras clave y texto alternativo) y el correo listo. Con el botón **Crear correo con esto** se arma la campaña. |
 | **Campañas de correo** | Saludo con el nombre de cada persona, un correo cada 10 segundos, baja en un clic y medición de aperturas, clics y bajas. |
 | **Base de datos** | Importación de CSV con validación de la autorización, sin duplicados, con distribución por municipio y respetando las bajas. |
+| **Mensaje de bienvenida** | Cada vez que Ligia (`BIENVENIDA_USUARIO`) abre el panel, aparece un mensaje distinto de Juan Carlos. Los demás usuarios no lo ven. Los mensajes están en `src/bienvenida.js`. |
 | **Cuenta de Instagram** | Seguidores reales, crecimiento neto, reels frente a publicaciones y ranking por puntaje de impacto. |
 
 ---

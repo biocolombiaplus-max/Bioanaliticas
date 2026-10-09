@@ -70,8 +70,23 @@ const App = {
     $('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) App.go(b.dataset.v); });
     addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && !$('#v-' + v)?.classList.contains('on')) App.go(v); });
     App.go(location.hash.slice(1) || 'analizar');
+    if (App.estado.bienvenida) App.bienvenida(App.estado.bienvenida);
     App.watchQueue();
     setInterval(App.watchQueue, 20000);
+  },
+  bienvenida({ firma, mensaje }) {
+    const el = document.createElement('div');
+    el.className = 'welcome';
+    el.innerHTML = `<div class="welcome-card" role="dialog" aria-modal="true" aria-label="Mensaje de bienvenida">
+      <div class="welcome-heart">♥</div>
+      <div class="welcome-from">${esc(firma)} te dice:</div>
+      <p class="welcome-msg">${esc(mensaje)}</p>
+      <button class="btn hot" type="button">Gracias ♥</button></div>`;
+    const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 300); };
+    el.addEventListener('click', e => { if (e.target === el || e.target.closest('button')) close(); });
+    addEventListener('keydown', function k(e) { if (e.key === 'Escape') { close(); removeEventListener('keydown', k); } });
+    document.body.append(el);
+    el.querySelector('button').focus();
   },
   // Motor de envío: mientras haya una campaña "enviando", el panel mantiene la cola en marcha.
   async watchQueue() {
