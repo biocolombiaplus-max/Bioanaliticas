@@ -741,12 +741,28 @@ const Archivo = {
 
 /* ---------------- Inicio ---------------- */
 const Inicio = {
+  // Invita a instalar el panel como app en el celular (solo si aún no está instalado).
+  instalar() {
+    const ya = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    let oculto = false; try { oculto = localStorage.getItem('instalarOculto') === '1'; } catch { /* sin almacenamiento */ }
+    const movil = matchMedia('(max-width: 860px)').matches;
+    const box = document.getElementById('instalar');
+    if (ya || oculto || !movil) { if (box) box.remove(); return; }
+    if (box) return;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const el = document.createElement('div');
+    el.className = 'instalar'; el.id = 'instalar';
+    el.innerHTML = `<img src="/img/apple-touch-icon.png" alt=""><p><b>Úsala como app.</b> ${ios ? 'En Safari toca <b>Compartir</b> (el cuadro con la flecha hacia arriba) y luego <b>Agregar a inicio</b>.' : 'Abre el menú <b>⋮</b> del navegador y elige <b>Instalar app</b> o <b>Agregar a la pantalla principal</b>.'}</p><button class="x" type="button" aria-label="Cerrar">×</button>`;
+    el.querySelector('button').onclick = () => { try { localStorage.setItem('instalarOculto', '1'); } catch { /* sin almacenamiento */ } el.remove(); };
+    $('#v-inicio').prepend(el);
+  },
   async load() {
     const e = App.estado, h = await api('/api/hoy');
     const hora = new Date().getHours();
     $('#hola').textContent = `${hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'}, ${e.nombre}`;
     $('#hoy-fecha').textContent = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).replace(/^./, c => c.toUpperCase());
     const diseno = e.rol === 'diseno';
+    Inicio.instalar();
     $('#hoy-kpis').innerHTML = [
       kpi(diseno ? 'Mis piezas en revisión' : 'Piezas por revisar', nf(h.piezas.revision), h.piezas.revision ? 'Esperan visto bueno' : 'Todo al día', C.orange),
       kpi('Con cambios pedidos', nf(h.piezas.cambios), diseno ? 'Revisa los comentarios' : 'Esperando nueva versión', '#c0392b'),
@@ -1031,7 +1047,7 @@ const Agenda = {
       <form id="ag-form" onsubmit="return Agenda.guardar(event)">
         <input type="hidden" name="id" value="${esc(a.id || '')}">
         <label>¿Qué actividad es?</label><input type="text" name="titulo" required value="${esc(a.titulo || '')}" placeholder="Ej.: Rueda de prensa Feria de la Uva">
-        <div class="grid g3"><div><label>Fecha</label><input type="date" name="fecha" required value="${esc(a.fecha)}"></div><div><label>Hora</label><input type="time" name="hora" value="${esc(a.hora || '')}"></div><div><label>Hasta</label><input type="time" name="horaFin" value="${esc(a.horaFin || '')}"></div></div>
+        <div class="grid g3 fechas"><div><label>Fecha</label><input type="date" name="fecha" required value="${esc(a.fecha)}"></div><div><label>Hora</label><input type="time" name="hora" value="${esc(a.hora || '')}"></div><div><label>Hasta</label><input type="time" name="horaFin" value="${esc(a.horaFin || '')}"></div></div>
         <label>Tipo</label><div class="tipos-grid">${Object.entries(T).map(([k, v]) => `<label><input type="radio" name="tipo" value="${k}" ${k === a.tipo ? 'checked' : ''}> ${esc(v)}</label>`).join('')}</div>
         <div class="grid g2"><div><label>Estado</label><select name="estado">${Object.entries(E).map(([k, v]) => `<option value="${k}" ${k === a.estado ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
           <div><label>Prioridad</label><select name="prioridad"><option value="normal" ${a.prioridad === 'normal' ? 'selected' : ''}>Normal</option><option value="alta" ${a.prioridad === 'alta' ? 'selected' : ''}>Alta</option><option value="urgente" ${a.prioridad === 'urgente' ? 'selected' : ''}>Urgente</option></select></div></div>
@@ -1039,7 +1055,7 @@ const Agenda = {
         <label>Con quién (participantes, voceros, medios)</label><input type="text" name="participantes" value="${esc(a.participantes || '')}">
         <label>Descripción / objetivo</label><textarea name="descripcion" style="min-height:70px">${esc(a.descripcion || '')}</textarea>
         <label>Resultados (lo que se logró)</label><textarea name="resultados" style="min-height:70px" placeholder="Ej.: Se anunció la programación; asistieron 8 medios; 3 notas publicadas.">${esc(a.resultados || '')}</textarea>
-        <div class="grid g3"><div><label>Asistentes</label><input type="number" inputmode="numeric" min="0" name="asistentes" value="${a.asistentes ?? ''}"></div><div><label>Medios</label><input type="number" inputmode="numeric" min="0" name="medios" value="${a.medios ?? ''}"></div><div><label>Publicaciones</label><input type="number" inputmode="numeric" min="0" name="publicaciones" value="${a.publicaciones ?? ''}"></div></div>
+        <div class="grid g3 nums"><div><label>Asistentes</label><input type="number" inputmode="numeric" min="0" name="asistentes" value="${a.asistentes ?? ''}"></div><div><label>Medios</label><input type="number" inputmode="numeric" min="0" name="medios" value="${a.medios ?? ''}"></div><div><label>Publicaciones</label><input type="number" inputmode="numeric" min="0" name="publicaciones" value="${a.publicaciones ?? ''}"></div></div>
         <label>Enlaces de soporte (notas en medios, publicaciones), uno por línea</label><textarea name="enlaces" style="min-height:60px" placeholder="https://…">${esc((a.enlaces || []).join('\n'))}</textarea>
         <label>Fotos de la actividad</label>
         <div class="row"><label class="btn alt" style="margin:0">📷 Tomar o elegir fotos<input type="file" accept="image/*" multiple hidden onchange="Agenda.fotosEnForm(this)"></label><span class="small muted" id="ag-subiendo"></span></div>

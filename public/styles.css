@@ -351,3 +351,40 @@ details.more summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--n
   .ag-range button{grid-column:span 3;justify-content:center}
   #ag-lista{padding-bottom:90px}
 }
+
+/* ---------- Experiencia tipo app en el celular ---------- */
+html,body{overflow-x:hidden;overflow-x:clip;max-width:100%;overscroll-behavior-x:none}
+body{-webkit-tap-highlight-color:transparent;touch-action:manipulation;text-size-adjust:100%;-webkit-text-size-adjust:100%}
+main,.view,.card,.grid,.modal-card{max-width:100%;min-width:0}
+.modal{overflow-x:hidden;overscroll-behavior:contain}
+.modal-card{overflow-x:hidden}
+.modal-card img,.modal-card video{max-width:100%}
+/* iPhone: los campos de fecha y hora traen un ancho mínimo propio que empujaba la pantalla hacia los lados */
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;min-height:44px;line-height:1.2}
+input::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
+.nav button,.btn,.tabs button{-webkit-user-select:none;user-select:none}
+@media (max-width:860px){
+  .side{position:sticky;top:0;z-index:30;padding-top:calc(10px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right))}
+  .brand img{width:36px;height:36px}
+  .brand b{font-size:14px}
+  main{padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right));padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+  .modal-card{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  .fab{bottom:calc(22px + env(safe-area-inset-bottom))}
+  .table-wrap,.nav,.tabs{touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}
+  .grid.g3{grid-template-columns:1fr}
+  .modal-card .grid.fechas{grid-template-columns:1fr 1fr}
+  .modal-card .grid.fechas>div:first-child{grid-column:1/-1}
+  .modal-card .grid.nums{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .act .t{flex-wrap:wrap}
+  .res-head .row{width:100%}
+}
+
+.instalar{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow)}
+.instalar img{width:44px;height:44px;border-radius:10px}
+.instalar p{margin:0;font-size:13px;flex:1}
+@media (max-width:520px){
+  .quick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .quick button{min-width:0;padding:12px;font-size:13px;flex-direction:column;align-items:flex-start;gap:8px}
+  .quick button i{width:30px;height:30px}
+}
